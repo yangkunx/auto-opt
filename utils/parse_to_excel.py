@@ -15,6 +15,7 @@ def check_and_create_dir(path):
 def parse_log_name(log_file):
     """
     parse log's name and return precison and core values
+    support precison: bfloat16, woq_int8, static_int8
     """
     if re.search("bfloat16", log_file):
         precision=re.findall('bfloat16', log_file)[0]
@@ -120,7 +121,7 @@ if platform.lower() == "spr":
 elif platform.lower() == "emr":
     report_path='{0}/{1}'.format(base_path,'emr')  
 else:
-    print('not surppot')
+    print('not support')
 
 #create dir
 check_and_create_dir(os.path.join(report_path,"output"))
