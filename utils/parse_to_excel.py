@@ -21,20 +21,20 @@ def parse_log_name(log_file):
         try:
             core=re.findall('\d{2}', log_file)[1]
         except IndexError:
-            core=56
+            core='56'
     if re.search("woq_int8", log_file):
         precision=re.findall('woq_int8', log_file)[0]
         print(precision)
         try:
             core=re.findall('\d{2}', log_file)[0]
         except IndexError:
-            core=56
+            core='56'
     if re.search("static_int8", log_file):
         precision=re.findall('static_int8', log_file)[0]
         try:
             core=re.findall('\d{2}', log_file)[0]
         except IndexError:
-            core=56
+            core='56'
     return precision, core
 
 def excel_style():
@@ -58,7 +58,8 @@ def parse_to_excel(platform, report_path, log_file_name):
     parse log to excel
     """
     precision, core= parse_log_name(log_file_name)
-    # Workbook is created 
+    # Workbook is created
+    print(core)
     wb = Workbook()
     core_sheet = wb.add_sheet(core)
     
