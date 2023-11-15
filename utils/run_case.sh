@@ -47,7 +47,7 @@ base_dir="report"
 if [ ${platform} == "emr" ] || [ ${platform} == "EMR" ]; then
     emr_dir=${base_dir}/${platform}
     mkdir -p ${emr_dir}
-    for precision in "bloat16" "woq_int8"
+    for precision in "bfloat16" "woq_int8"
     do
         
         set_args="INPUT_TOKENS=1024/OUTPUT_TOKENS=128/PRECISION=${precision}"
@@ -58,7 +58,7 @@ elif [ ${platform} == "spr" ] || [ ${platform} == "SPR" ]; then
     mkdir -p ${spr_dir}
     for cores in 50 51 52 53 54 56
     do
-        for precision in "bloat16" "woq_int8" "static_int8"
+        for precision in "bfloat16" "woq_int8" "static_int8"
         do  
             set_args="INPUT_TOKENS=1024/OUTPUT_TOKENS=128/CORES_PER_INSTANCE=${cores}/PRECISION=${precision}"
             run_with_n_cores ${set_args} 2>&1 | tee ${spr_dir}/c_${precision}_${cores}.log
