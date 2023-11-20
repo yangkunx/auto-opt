@@ -1,12 +1,10 @@
 import os
 import re
-import copy
+import argparse
 import pandas as pd
+from datetime import datetime
 
-
-
-
-def parse_file_name(file_name):
+def parse_file_name(file_name, instance, flag=""):
     """
     type: eg: simd
     flag: eg: avx
@@ -14,16 +12,41 @@ def parse_file_name(file_name):
     freq: eg: 3.0Ghz
     parse file's name and return flog, core and so on values
     support
+    
+    用于demo，不同的指令集，当在不同的 core freq，不同的 Cores，其实际cpu freq, uncore freq, power 的关系
+    数据集文件基于如下规则：
+    <inst>_<cores>_<freq>.dat.xlsx
+    <inst>: general(busy), simd_sse, simd_avx, simd_avx512, amx : Total 5
+    <cores>: 4..56..4 : Total 14
+    <freq>: 2.4..3.8..0.2 : Total 8
+    Total files: 5 * 14 * 8 = 560
+    Sample: simd_sse_56_3.6Ghz.dat.xls
+    每个emon文件，取 "socket view" 的 Socket 0 数据，取3个值：
+    "metric_CPU operating frequency (in GHz)": 标记运行时实际cpu frequency
+    "metric_uncore frequency GHz": 标记 uncore frequency
+    "metric_package power (watts)": 标记功耗
     """
-    file_info={}
-    if re.search("^busy", file_name):
-        pass
-    if re.search("^simd", file_name):
-        file_gather = file_name.split('_')
-        file_info['type'] = file_gather[0]
-        file_info['flag'] = file_gather[1]
-        file_info['core'] = file_gather[2]
-        file_info['freq'] = re.findall('\d+\.\d+Ghz',file_gather[3])[0]
+    file_info = {}
+    # print(instance)
+    if instance == "busy":
+        if re.search("^busy", file_name):
+            file_gather = file_name.split('_')
+            file_info['type'] = instance
+            file_info['core'] = file_gather[1]
+            file_info['freq'] = re.findall('\d+\.\d+Ghz',file_gather[2])[0]
+    elif instance == "simd":
+        if flag == "sse":
+            file_gather = file_name.split('_')
+            file_info['type'] = "{}_{}".format(file_gather[0], file_gather[1])
+            file_info['core'] = file_gather[2]
+            file_info['freq'] = re.findall('\d+\.\d+Ghz',file_gather[3])[0]
+        else:
+            file_gather = file_name.split('_')
+            file_info['type'] = instance
+            file_info['flag'] = flag
+            file_info['core'] = file_gather[2]
+            file_info['freq'] = re.findall('\d+\.\d+Ghz',file_gather[3])[0]
+                
     return file_info
 
 def get_emon_data(file_path, sheet_name, sample, select_col):
@@ -41,28 +64,26 @@ def save_df(core_info):
     result_df = list(dict(sorted(result.items())).values())
     return result_df
 
-
-def get_dataframe_data(emon_data, sample_list):
-    # core_dict = {}
+def get_dataframe_data(emon_data, sample_list, instance, flag=""):
     core_info = []
+    files_num = 0
     for file_name in os.listdir(emon_data):
-        if re.search(".xlsx$", file_name) and re.search("^simd", file_name) and re.search("avx512", file_name):
-            # print(file_name)
-            # print(emon_data)
-            file_info = parse_file_name(file_name)
+        if flag == "avx":
+            partern = "^{}_avx_[0-9]+".format(instance, flag)
+        else:
+            partern = "^{}(_{})?_[0-9]+".format(instance, flag)
+        if re.search(".xlsx$", file_name) and re.search(partern, file_name):
+            file_info = parse_file_name(file_name, instance, flag)
             samplev_list = []
             if os.path.isfile(os.path.join(emon_data,file_name)):
                 file_path = os.path.join(emon_data, file_name) 
                 for sample in sample_list: 
-                    print(sample)
                     sample_value = get_emon_data(file_path, "socket view", sample, "socket 0")
                     samplev_list.append(sample_value)
-            # core_dict[file_info['core']]=samplev_list
             core_info.append({file_info['core']: samplev_list})
-
-    # print(core_l)
+            files_num += 1
     result=save_df(core_info)
-    return result
+    return result,files_num
 
 def save(df_data):
     multi_index = pd.MultiIndex.from_tuples([("4", ), ("8",), ("12",), ("16",), ("20",),
@@ -80,12 +101,38 @@ def save(df_data):
                                       ("3.8", "metric_CPU"), ("3.8", "metric_uncore"), ("3.8", "power"),])
                                     
     df = pd.DataFrame(df_data, columns=cols, index=multi_index)
-    print(df)
-    df.to_excel("1.xlsx")
     
+    return df 
     
-if __name__ == "__main__":   
-    emon_data='/home/yangkun/emon-2'
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser('Parse the emon data', add_help=False)
+    parser.add_argument("--emon_data", "--d", default="/home/yangkun/emon-2", type=str, help="specish the emon data path")
+
+    pass_args = parser.parse_args()
+    emon_data = pass_args.emon_data
     sample_list=["metric_CPU operating frequency (in GHz)", "metric_uncore frequency GHz", 'metric_package power (watts)']
-    df_data = get_dataframe_data(emon_data, sample_list)
-    save(df_data)
+    
+    inst = ["busy", "simd"]
+    flag = ["sse", "avx", "avx512", "amx"]
+    
+    print("Starting parse the excel files..........")
+    start = datetime.now()
+    type_dict = {}
+    for i in inst:
+        if i == "busy":
+            df_data, files_num = get_dataframe_data(emon_data, sample_list, i)
+            type_dict[i] = {'data': df_data, 'files_num': files_num}
+        elif i == "simd":
+            for f in flag:
+                df_data, files_num = get_dataframe_data(emon_data, sample_list, i, f)
+                type_dict["{}_{}".format(i,f)] = {'data': df_data, 'files_num': files_num}
+    with pd.ExcelWriter('2.xlsx') as writer:
+        for k, v in type_dict.items():
+            if len(v['data']) != 0:
+                print(k,len(v['data']), v['files_num'])
+                save(v['data']).to_excel(writer, sheet_name=k)
+    print("总计处理文件:", sum([i['files_num'] for i in list(type_dict.values())]), "个文件")
+    end = datetime.now()
+    print("Ending parse the excel files..........")
+    print("Sum:", (end - start).total_seconds(), "sec")
