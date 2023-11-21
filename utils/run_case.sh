@@ -50,7 +50,7 @@ if [ ${platform} == "emr" ] || [ ${platform} == "EMR" ]; then
     for precision in "bfloat16" "woq_int8"
     do
         
-        set_args="INPUT_TOKENS=1024/OUTPUT_TOKENS=128/PRECISION=${precision}"
+        set_args="INPUT_TOKENS=1024/OUTPUT_TOKENS=128/USE_DEEPSPEED=True/PRECISION=${precision}"
         run_with_n_cores ${set_args} 2>&1 | tee ${emr_dir}/c_${precision}.log
     done
 elif [ ${platform} == "spr" ] || [ ${platform} == "SPR" ]; then
