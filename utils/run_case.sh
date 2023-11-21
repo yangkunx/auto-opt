@@ -8,7 +8,7 @@ function run_with_n_cores(){
     FREQUENCYS=("2.0Ghz" "2.2Ghz" "2.4Ghz" "2.6Ghz" "2.8Ghz" "3.0Ghz" "3.2Ghz" "3.4Ghz" "3.6Ghz" "3.8Ghz")
     for FREQUENCY in ${FREQUENCYS[@]}
     do
-        for i in {1..3}
+        for i in $(seq 1 3)
         do
             echo "Setting frequency-${FREQUENCY}"
             sudo cpupower frequency-set -u $FREQUENCY >/dev/null ;sudo cpupower frequency-set -d $FREQUENCY >/dev/null
