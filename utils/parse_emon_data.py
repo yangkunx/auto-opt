@@ -6,11 +6,11 @@ from datetime import datetime
 
 def parse_file_name(file_name, instance, flag=""):
     """
+    parse file's name and return one dict, contain: instance type,  flag, core and freq so on values
     type: eg: simd
     flag: eg: avx
     core: eg: 28
     freq: eg: 3.0Ghz
-    parse file's name and return flog, core and so on values
     support
     
     用于demo，不同的指令集，当在不同的 core freq，不同的 Cores，其实际cpu freq, uncore freq, power 的关系
@@ -50,13 +50,30 @@ def parse_file_name(file_name, instance, flag=""):
     return file_info
 
 def get_emon_data(file_path, sheet_name, sample, select_col):
-    dict_s = {}
+    """
+    Use pandas to get the data of Specify sample and sheet from excel
+    Args:
+        file_path (_type_): the path of excel
+        sheet_name (_type_): the sheet of excel
+        sample (_type_): the sample of excel
+        select_col (_type_): the select coloum of excel
+
+    Returns:
+        _type_: Returns the float value of each cell
+    """
     df = pd.read_excel(file_path, index_col=0, header=0, sheet_name=sheet_name)
     sample_value = df.loc[sample, select_col]
-    dict_s[sample] = sample_value
     return sample_value
 
 def save_df(core_info):
+    """
+    Convert the list to pd require format
+    Args:
+        core_info (_type_): core info list
+
+    Returns:
+        _type_: the list of same core
+    """
     result = {}
     for single_core in core_info:
         for core, s_value_list in single_core.items():
@@ -65,6 +82,17 @@ def save_df(core_info):
     return result_df
 
 def get_dataframe_data(emon_data, sample_list, instance, flag=""):
+    """Create the datarame data
+
+    Args:
+        emon_data (_type_): the path of emon data
+        sample_list (_type_): Need to return sample type
+        instance (_type_): the instance of sample
+        flag (str, optional): Such as avx . Defaults to "".
+
+    Returns:
+        _type_: Return dick, contain key is freq and the parse file of sum
+    """
     core_info = []
     files_num = 0
     for file_name in os.listdir(emon_data):
@@ -86,6 +114,14 @@ def get_dataframe_data(emon_data, sample_list, instance, flag=""):
     return result,files_num
 
 def save(df_data):
+    """
+    Save single dataframe
+    Args:
+        df_data (_type_): the require format of dataframe
+
+    Returns:
+        _type_: return dataframe instance
+    """
     multi_index = pd.MultiIndex.from_tuples([("4", ), ("8",), ("12",), ("16",), ("20",),
                                              ("24",), ("28",),("32",), ("36",), ("40", ),
                                              ("44",), ("48",),("52",), ("56",)], names=['core'])
