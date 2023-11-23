@@ -2,15 +2,13 @@
 #Writon by Kun
 
 # VARs
-HARDWARE_PLATFORM="${HARDWARE_PLATFORM:-spr}"
-PRECISIONS="${PRECISIONS:-bfloat16}"
-BATCH_SIZES="${BATCH_SIZES:-1}"
-LOOP="${LOOP:-1}"
-CORES="${CORES:-56}"
-FREQUENCYS="${FREQUENCYS:-3.8}"
-DRY_RUN="${DRY_RUN:-false}"
-INPUT_TOKENS="${INPUT_TOKENS:-1024}"
-OUTPUT_TOKENS="${OUTPUT_TOKENS:-128}"
+HARDWARE_PLATFORM="spr"
+PRECISIONS="bfloat16"
+BATCH_SIZES="1"
+LOOP=1
+CORES="56"
+FREQUENCYS="3.8"
+DRY_RUN=false
 
 function usage() {
     cat << EOM
@@ -23,25 +21,21 @@ function usage() {
     -f run frequencys, default is "3.8", eg: [-f "2.0 2.4 2.8 3.8"].
     -s pass the args to ctest.sh, eg: [-s "INPUT_TOKENS=1024/OUTPUT_TOKENS=128"].
     -d Generate he testcase configurations and then exit, default is "false", eg: [-d].
-    -i run input_tokens, default is "1024", eg: [-i "32 64 128"].
-    -o run output_tokens, default is "128", eg: [-o "32 64 128"].
 EOM
     exit 0
 }
 
 function process_args() {
-    while getopts "c:db:f:h:l:p:s:i:o" opt; do
+    while getopts "c:h:l:p:b:p:f:s:d" opt; do
         case $opt in
-        c) CORES="$OPTARG";;
-        d) DRY_RUN=true ;;
-        b) BATCH_SIZES="$OPTARG";;
-        f) FREQUENCYS="$OPTARG";;
         h) HARDWARE_PLATFORM="$OPTARG";;
         l) LOOP="$OPTARG";;
-        p) PRECISIONS="$OPTARG";;
+        p) PRECISIONS="$OPTARG" ;;
+        b) BATCH_SIZES="$OPTARG";;
+        c) CORES="$OPTARG";;
+        f) FREQUENCYS="$OPTARG";;
         s) SET_ARGS="$OPTARG";;
-        i) INPUT_TOKENS="$OPTARG";;
-        o) OUTPUT_TOKENS="$OPTARG";;
+        d) DRY_RUN=true ;;
         *) usage exit 1;;
         esac
     done
@@ -57,8 +51,6 @@ function _print_args(){
     echo "FREQUENCYS: ${FREQUENCYS}"
     echo "SET_ARGS: ${SET_ARGS}"
     echo "DRY_RUN: ${DRY_RUN}"
-    echo "INPUT_TOKENS: ${INPUT_TOKENS}"
-    echo "OUTPUT_TOKENS: ${OUTPUT_TOKENS}"
     echo "$2"
 }
 
@@ -109,28 +101,25 @@ function run_with_platform(){
     do
         for BATCH_SIZE in ${BATCH_SIZES}
         do
-            for INPUT_TOKEN in ${INPUT_TOKENS}
-            do
-                if [[ ${HARDWARE_PLATFORM} == "emr" ]]; then
-                    output_dir=${base_dir}/${HARDWARE_PLATFORM}
-                    mkdir -p ${output_dir}
-                    SET_ARGS="INPUT_TOKENS=${INPUT_TOKEN}/OUTPUT_TOKENS=128/USE_DEEPSPEED=True/PRECISION=${PRECISION}/BATCH_SIZE=${BATCH_SIZE}"
-                    output_log=${output_dir}/c_56_${PRECISION}.log
-                    run_with_n_cores -s "${SET_ARGS}" -l "${LOOP}" -f "${FREQUENCYS}" -p "${PRECISION}" -b "${BATCH_SIZES}" 2>&1 | tee ${output_log}
-                elif [[ ${HARDWARE_PLATFORM} == "spr" ]]; then
-                    output_dir=${base_dir}/${HARDWARE_PLATFORM}
-                    mkdir -p ${output_dir}
-                    for CORE in $CORES
-                    do
-                        SET_ARGS="INPUT_TOKENS=${INPUT_TOKEN}/OUTPUT_TOKENS=128/CORES_PER_INSTANCE=${CORE}/PRECISION=${PRECISION}/BATCH_SIZE=${BATCH_SIZE}"
-                        output_log=${output_dir}/c_${CORE}_${PRECISION}.log
-                        run_with_n_cores -s "${SET_ARGS}" -l "${LOOP}" -c "${CORE}" -f "${FREQUENCYS}" -p "${PRECISION}" -b "${BATCH_SIZES}" 2>&1 | tee ${output_log}
-                    done
-                else
-                    exit 1
-                fi
-            
-            done
+            if [[ ${HARDWARE_PLATFORM} == "emr" ]]; then
+                output_dir=${base_dir}/${HARDWARE_PLATFORM}
+                mkdir -p ${output_dir}
+                SET_ARGS="INPUT_TOKENS=1024/OUTPUT_TOKENS=128/USE_DEEPSPEED=True/PRECISION=${PRECISION}/BATCH_SIZE=${BATCH_SIZE}"
+                output_log=${output_dir}/c_56_${PRECISION}_${BATCH_SIZE}.log
+                run_with_n_cores -s "${SET_ARGS}" -l "${LOOP}" -f "${FREQUENCYS}" -p "${PRECISION}" -b "${BATCH_SIZES}" 2>&1 | tee ${output_log}
+            elif [[ ${HARDWARE_PLATFORM} == "spr" ]]; then
+                output_dir=${base_dir}/${HARDWARE_PLATFORM}
+                mkdir -p ${output_dir}
+                for CORE in $CORES
+                do
+                    SET_ARGS="INPUT_TOKENS=1024/OUTPUT_TOKENS=128/CORES_PER_INSTANCE=${CORE}/PRECISION=${PRECISION}/BATCH_SIZE=${BATCH_SIZE}"
+                    output_log=${output_dir}/c_${CORE}_${PRECISION}_${BATCH_SIZE}.log
+                    run_with_n_cores -s "${SET_ARGS}" -l "${LOOP}" -c "${CORE}" -f "${FREQUENCYS}" -p "${PRECISION}" -b "${BATCH_SIZES}" 2>&1 | tee ${output_log}
+                done
+            else
+                exit 1
+            fi
+        
         done
         
     done
@@ -141,4 +130,3 @@ _print_args "脚本传入参数打印开始。。。。。。。" "脚本传入�
 
 HARDWARE_PLATFORM=$(echo $HARDWARE_PLATFORM | tr '[:upper:]' '[:lower:]')
 run_with_platform -h ${HARDWARE_PLATFORM} -p "${PRECISIONS}" -c "${CORES}" -l ${LOOP} -f "${FREQUENCYS}" -b "${BATCH_SIZES}"
-
