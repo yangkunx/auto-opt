@@ -50,6 +50,10 @@ def parse_to_excel(platform, report_path, log_file_name):
                 second_token=re.findall('\d+\.\d+', line)[0]
                 single_loop_list.append(second_token)
                 print("second_token:",float(second_token))
+            if re.search("WSF Portal URL:", line):
+                dashboard_link = re.findall('https://.*', line)[0]
+                single_loop_list.append(dashboard_link)
+                print(dashboard_link)
             if re.search("Current\s+\d+-\d+-\w+.*", line):
                 loop_time=re.findall('([0-9])', line)[0]
                 current_frequency=re.findall('\d.\dGhz', line)[0]
@@ -58,24 +62,6 @@ def parse_to_excel(platform, report_path, log_file_name):
     
     logfile_result['kpi'] = single_file_dict
     return logfile_result
-
-def save(index_tuples, data):
-    """
-    Save single dataframe
-    Args:
-        df_data (_type_): the require format of dataframe
-
-    Returns:
-        _type_: return dataframe instance
-    """
-    multi_index = pd.MultiIndex.from_tuples(index_tuples)                                
-             
-    cols = pd.MultiIndex.from_tuples([("Avg",), ("1st",), ("2nd",)], names=['fre'])
-                       
-    df = pd.DataFrame(data, columns=cols, index=multi_index)
-    df.to_excel("3.xlsx")
-    return df 
-
 
 parser = argparse.ArgumentParser('Auto run the specify WL case', add_help=False)
 parser.add_argument("--platform", "--p", default="SPR", type=str, help="hardware platform")
@@ -100,11 +86,12 @@ for file in os.listdir(report_path):
         single = parse_to_excel( platform, report_path, file)
         last_re.append(single)
 
-with pd.ExcelWriter('2.xlsx') as writer:
+with pd.ExcelWriter('output.xlsx') as writer:
     for value in last_re:
         result_df = list(value['kpi'].values())
         sun = list(value['kpi'].keys())
-        index_tuples = [(i,) for i in sun]
+        index = [i for i in sun]
         sheet_name = '{0}_{1}_{2}'.format(value['core'], value['precision'], value['batch_size'])
-        save(index_tuples, result_df).to_excel(writer, sheet_name=sheet_name)
-        
+        cols = ["Avg", "1st", "2nd", "URL"]                  
+        df = pd.DataFrame(result_df, columns=cols, index=index)
+        df.to_excel(writer, sheet_name=sheet_name, index_label="Fre")
