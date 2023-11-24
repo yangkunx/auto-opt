@@ -29,8 +29,6 @@ def parse_to_excel(platform, report_path, log_file_name):
     parse log to excel
     """
     logfile_result = parse_log_name(log_file_name)
-    print(logfile_result)
-    # exit(1)
     logfile_fullpath = os.path.join(report_path,log_file_name)
     single_file_dict = {}
     #Read output log file
@@ -56,35 +54,9 @@ def parse_to_excel(platform, report_path, log_file_name):
                 loop_time=re.findall('([0-9])', line)[0]
                 current_frequency=re.findall('\d.\dGhz', line)[0]
                 print("loop_time and current_frequency:", loop_time, current_frequency)
-                # single_file_dict['loop_time'] = loop_time
-                # single_file_dict['current_frequency'] = current_frequency
                 single_file_dict[current_frequency] = single_loop_list
-                # single_file_list.append({'{}'.format(loop_time): single_file_dict})
-                # fre_dict['{0}'.format(current_frequency)] = single_file_list
-                # print(single_file_dict)
-                # d[loop_time] = [latency, first_token, second_token]
-                
-                # print(logfile_result, single_file_dict)
     
-    logfile_result['kpi'] = single_file_dict          
-    
-    """
-    
-    file = {'core': '50', 'precision': 'bfloat16', 'batch_size': '1'}
-    list_1 = {'latency': 1.998, 'first_token': 2.123, 'second_token': 3.1, 'fre': '3.8Ghz', 'loop': 1}
-    {'2.0':{'bfloat16':{'50core':{'bz1':[{'1': {'latency': '8.577'}}, {'2': {'latency': '8.577'}] } } },
-     '2.2': [{'1': {'latency': '8.577'}}, {'2': {'latency': '8.577'}],
-     '2.4': [{'1': {'latency': '8.577'}}, {'2': {'latency': '8.577'}],
-    }
-    or
-    
-    {'2.0': [{'1': {'latency': '8.577', 'first_token': '0.917', 'second_token': '0.060'}}, {'2': {'latency': '8.577', 'first_token': '0.917', 'second_token': '0.060'}],
-     '2.2': [{'1': {'latency': '8.577', 'first_token': '0.917', 'second_token': '0.060'}}, {'2': {'latency': '8.577', 'first_token': '0.917', 'second_token': '0.060'}],
-     '2.4': [{'1': {'latency': '8.577', 'first_token': '0.917', 'second_token': '0.060'}}, {'2': {'latency': '8.577', 'first_token': '0.917', 'second_token': '0.060'}],
-    }
-    """
-    
-
+    logfile_result['kpi'] = single_file_dict
     return logfile_result
 
 def save(index_tuples, data):
@@ -118,29 +90,21 @@ if platform.lower() == "spr":
 elif platform.lower() == "emr":
     report_path='{0}/{1}'.format(base_path,'emr')  
 else:
-    print('Not support')
+    exit(1)
 
-#create dir
 check_and_create_dir(os.path.join(report_path,"output"))
 
-
-# frequencys=("2.0Ghz","2.2Ghz","2.4Ghz","2.6Ghz","2.8Ghz","3.0Ghz","3.2Ghz","3.4Ghz","3.6Ghz","3.8Ghz")
-# #frequencys=("2.8Ghz","3.0Ghz" , "3.4Ghz" ,"3.8Ghz")
-# loop=1
 last_re = []
 for file in os.listdir(report_path):
-    # fre_dict = {}
     if os.path.isfile(os.path.join(report_path,file)):
         single = parse_to_excel( platform, report_path, file)
         last_re.append(single)
 
-# print(last_re)
 with pd.ExcelWriter('2.xlsx') as writer:
     for value in last_re:
         result_df = list(value['kpi'].values())
         sun = list(value['kpi'].keys())
         index_tuples = [(i,) for i in sun]
-        # print([(i,) for i in sun], result_df)
         sheet_name = '{0}_{1}_{2}'.format(value['core'], value['precision'], value['batch_size'])
         save(index_tuples, result_df).to_excel(writer, sheet_name=sheet_name)
         
