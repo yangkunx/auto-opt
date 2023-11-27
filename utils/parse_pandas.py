@@ -84,8 +84,15 @@ def parse_to_excel(platform, report_path, log_file_name):
     logfile_result['kpi'] = single_file_dict
     return logfile_result
 
-def merge():
-    pass
+def create_sum(data):
+    grouped_dict = {}
+    for x in data:
+        if x['batch_size'] not in grouped_dict:
+            grouped_dict[x['batch_size']] = [x]
+        else:
+            grouped_dict[x['batch_size']].append(x)
+    
+    return grouped_dict
 
 parser = argparse.ArgumentParser('Auto run the specify WL case', add_help=False)
 parser.add_argument("--platform", "--p", default="SPR", type=str, help="hardware platform")
@@ -116,14 +123,23 @@ storeData(last_re, "re.pickle")
 # print(last_re)
 sheet_list = []
 with pd.ExcelWriter('output.xlsx') as writer:
+    cols = ["Avg", "1st", "2nd"] 
+    bs_class = create_sum(last_re)
+    for key, value in bs_class.items():
+        for bs_sample in value:
+            sheet_name = '{0}_{1}'.format(bs_sample['precision'], int(key))
+            sun = list(bs_sample['kpi'].keys())
+        index = [i for i in sun]
+        dist = [ pd.DataFrame(list(bs_value['kpi'].values()) , columns=cols, index=index) for bs_value in value ]
+        x= pd.concat(dist, keys=['50', '52', '54', '56'])
+        x.to_excel(writer, sheet_name=sheet_name, index_label=['core', 'fre'])
+    
     for value in last_re:
         result_df = list(value['kpi'].values())
         sun = list(value['kpi'].keys())
         index = [i for i in sun]
         sheet_name = '{0}_{1}_{2}'.format(value['core'], value['precision'], value['batch_size'])
-        cols = ["Avg", "1st", "2nd"] 
+
         sheet_list.append(sheet_name)       
         df = pd.DataFrame(result_df, columns=cols, index=index)
         df.to_excel(writer, sheet_name=sheet_name, index_label="Fre")
-
-print(sheet_list)
