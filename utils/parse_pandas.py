@@ -84,16 +84,19 @@ def parse_to_excel(platform, report_path, log_file_name):
     logfile_result['kpi'] = single_file_dict
     return logfile_result
 
+def merge():
+    pass
+
 parser = argparse.ArgumentParser('Auto run the specify WL case', add_help=False)
 parser.add_argument("--platform", "--p", default="SPR", type=str, help="hardware platform")
 
 pass_args = parser.parse_args()
 platform = pass_args.platform
 
-base_path='/home/yangkun/lab/auto-opt/utils/report'
+base_path='/home/yangkun/lab/yangkunx/build-gptj/workload/GPTJ-PyTorch-Public/report'
 
 if platform.lower() == "spr":
-    report_path='{0}/{1}'.format(base_path,'spr')
+    report_path='{0}/{1}'.format(base_path,'spr-bz-fre-core')
 elif platform.lower() == "emr":
     report_path='{0}/{1}'.format(base_path,'emr')  
 else:
@@ -107,17 +110,20 @@ for file in os.listdir(report_path):
         single = parse_to_excel( platform, report_path, file)
         last_re.append(single)
         
-# storeData(last_re, "re")
+storeData(last_re, "re.pickle")
 
-# loadData("re")
-
+# loadData("re.pickle")
+# print(last_re)
+sheet_list = []
 with pd.ExcelWriter('output.xlsx') as writer:
     for value in last_re:
         result_df = list(value['kpi'].values())
-        print(result_df)
         sun = list(value['kpi'].keys())
         index = [i for i in sun]
         sheet_name = '{0}_{1}_{2}'.format(value['core'], value['precision'], value['batch_size'])
-        cols = ["Avg", "1st", "2nd"]        
+        cols = ["Avg", "1st", "2nd"] 
+        sheet_list.append(sheet_name)       
         df = pd.DataFrame(result_df, columns=cols, index=index)
         df.to_excel(writer, sheet_name=sheet_name, index_label="Fre")
+
+print(sheet_list)
