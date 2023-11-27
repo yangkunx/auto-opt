@@ -1,5 +1,6 @@
 import re
 import os
+import pickle
 import pandas as pd
 import argparse
 
@@ -12,7 +13,23 @@ def check_and_create_dir(path):
         os.makedirs(path)
     except FileExistsError:
         return False
+    
+def storeData(data, pickle_name):
+    # Its important to use binary mode
+    dbfile = open(pickle_name, 'ab')
+     
+    # source, destination
+    pickle.dump(data, dbfile)                    
+    dbfile.close()
+    
 
+def loadData(pickle_name):
+    # for reading also binary mode is important
+    dbfile = open(pickle_name, 'rb')    
+    db = pickle.load(dbfile)
+    print(db)
+    dbfile.close()
+    
 def parse_log_name(log_file):
     """
     parse log's name and return precison core and batch_size values
@@ -39,7 +56,7 @@ def parse_to_excel(platform, report_path, log_file_name):
             if re.search("Inference latency:", line):
                 single_loop_list = []
                 latency=re.findall('\d+\.\d+', line)[0]
-                single_loop_list.append(latency)
+                # single_loop_list.append(latency)
                 print("latency:", float(latency))
             # Get first_token
             if re.search("First token average latency:", line):
@@ -52,12 +69,16 @@ def parse_to_excel(platform, report_path, log_file_name):
                 print("second_token:",float(second_token))
             if re.search("WSF Portal URL:", line):
                 dashboard_link = re.findall('https://.*', line)[0]
-                single_loop_list.append(dashboard_link)
+                # single_loop_list.append(dashboard_link)
                 print(dashboard_link)
             if re.search("Current\s+\d+-\d+-\w+.*", line):
                 loop_time=re.findall('([0-9])', line)[0]
                 current_frequency=re.findall('\d.\dGhz', line)[0]
                 print("loop_time and current_frequency:", loop_time, current_frequency)
+                #single_file_dict[current_frequency] = single_loop_list
+                # single_file_dict[current_frequency] = {'kpi_values':single_loop_list, 'dashboard_link': dashboard_link}
+                link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, latency)
+                single_loop_list.insert(0, link)
                 single_file_dict[current_frequency] = single_loop_list
     
     logfile_result['kpi'] = single_file_dict
@@ -85,13 +106,18 @@ for file in os.listdir(report_path):
     if os.path.isfile(os.path.join(report_path,file)):
         single = parse_to_excel( platform, report_path, file)
         last_re.append(single)
+        
+# storeData(last_re, "re")
+
+# loadData("re")
 
 with pd.ExcelWriter('output.xlsx') as writer:
     for value in last_re:
         result_df = list(value['kpi'].values())
+        print(result_df)
         sun = list(value['kpi'].keys())
         index = [i for i in sun]
         sheet_name = '{0}_{1}_{2}'.format(value['core'], value['precision'], value['batch_size'])
-        cols = ["Avg", "1st", "2nd", "URL"]                  
+        cols = ["Avg", "1st", "2nd"]        
         df = pd.DataFrame(result_df, columns=cols, index=index)
         df.to_excel(writer, sheet_name=sheet_name, index_label="Fre")
