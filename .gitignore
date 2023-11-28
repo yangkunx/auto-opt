@@ -1,3 +1,4 @@
 /utils/report
 /utils/*.xlsx
 /.vscode
+/utils/jupyter/*.xlsx
