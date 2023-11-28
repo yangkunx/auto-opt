@@ -1,7 +1,9 @@
 import re
 import os
+import xlsxwriter
 import pickle
 import pandas as pd
+import numpy as np
 import argparse
 
 
@@ -61,11 +63,11 @@ def parse_to_excel(platform, report_path, log_file_name):
             # Get first_token
             if re.search("First token average latency:", line):
                 first_token=re.findall('\d+\.\d+', line)[0]
-                single_loop_list.append(first_token)
+                single_loop_list.append(float(first_token))
                 print("first_token:", float(first_token))
             if re.search("Average 2... latency:", line):
                 second_token=re.findall('\d+\.\d+', line)[0]
-                single_loop_list.append(second_token)
+                single_loop_list.append(float(second_token))
                 print("second_token:",float(second_token))
             if re.search("WSF Portal URL:", line):
                 dashboard_link = re.findall('https://.*', line)[0]
@@ -77,7 +79,7 @@ def parse_to_excel(platform, report_path, log_file_name):
                 print("loop_time and current_frequency:", loop_time, current_frequency)
                 #single_file_dict[current_frequency] = single_loop_list
                 # single_file_dict[current_frequency] = {'kpi_values':single_loop_list, 'dashboard_link': dashboard_link}
-                link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, latency)
+                link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, float(latency))
                 single_loop_list.insert(0, link)
                 single_file_dict[current_frequency] = single_loop_list
     
@@ -93,6 +95,13 @@ def create_sum(data):
             grouped_dict[x['batch_size']].append(x)
     
     return grouped_dict
+
+def set_style(df, sheet_name, column_no):
+    workbook = writer.book
+    worksheet = writer.sheets[sheet_name]
+    
+    border_fmt = workbook.add_format({'bottom':1, 'top':1, 'left':1, 'right':1})
+    worksheet.conditional_format(xlsxwriter.utility.xl_range(0, 0, len(df), len(df.columns)+column_no), {'type': 'no_errors', 'format': border_fmt})
 
 parser = argparse.ArgumentParser('Auto run the specify WL case', add_help=False)
 parser.add_argument("--platform", "--p", default="SPR", type=str, help="hardware platform")
@@ -122,7 +131,7 @@ storeData(last_re, "re.pickle")
 # loadData("re.pickle")
 # print(last_re)
 sheet_list = []
-with pd.ExcelWriter('output.xlsx') as writer:
+with pd.ExcelWriter('output-1.xlsx') as writer:
     cols = ["Avg", "1st", "2nd"] 
     bs_class = create_sum(last_re)
     for key, value in bs_class.items():
@@ -130,9 +139,17 @@ with pd.ExcelWriter('output.xlsx') as writer:
             sheet_name = '{0}_{1}'.format(bs_sample['precision'], int(key))
             sun = list(bs_sample['kpi'].keys())
         index = [i for i in sun]
-        dist = [ pd.DataFrame(list(bs_value['kpi'].values()) , columns=cols, index=index) for bs_value in value ]
-        x= pd.concat(dist, keys=['50', '52', '54', '56'])
-        x.to_excel(writer, sheet_name=sheet_name, index_label=['core', 'fre'])
+        df_list = [ pd.DataFrame(list(bs_value['kpi'].values()) , columns=cols, index=index) for bs_value in value ]
+        import numpy as np
+        # empty_df = pd.DataFrame([[np.nan] * 3], columns=3)
+        dist = []
+        for d in df_list:
+            dist.append(d)
+            empty_df = pd.DataFrame([[np.nan] * len(d.columns)], columns=d.columns, index=[None])
+            dist.append(empty_df)
+        df= pd.concat(dist,  keys=['50', np.nan, '52', np.nan, '54', np.nan, '56'])
+        df.to_excel(writer, sheet_name=sheet_name, index_label=['core', 'fre'])
+        set_style(df, sheet_name, 1)
     
     for value in last_re:
         result_df = list(value['kpi'].values())
@@ -143,3 +160,4 @@ with pd.ExcelWriter('output.xlsx') as writer:
         sheet_list.append(sheet_name)       
         df = pd.DataFrame(result_df, columns=cols, index=index)
         df.to_excel(writer, sheet_name=sheet_name, index_label="Fre")
+        set_style(df, sheet_name, 0)
