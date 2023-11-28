@@ -140,8 +140,6 @@ with pd.ExcelWriter('output-1.xlsx') as writer:
             sun = list(bs_sample['kpi'].keys())
         index = [i for i in sun]
         df_list = [ pd.DataFrame(list(bs_value['kpi'].values()) , columns=cols, index=index) for bs_value in value ]
-        import numpy as np
-        # empty_df = pd.DataFrame([[np.nan] * 3], columns=3)
         dist = []
         for d in df_list:
             dist.append(d)
