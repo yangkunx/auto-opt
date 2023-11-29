@@ -58,27 +58,26 @@ def parse_to_excel(platform, report_path, log_file_name):
             if re.search("Inference latency:", line):
                 single_loop_list = []
                 latency=re.findall('\d+\.\d+', line)[0]
-                # single_loop_list.append(latency)
                 print("latency:", float(latency))
-            # Get first_token
+            # Get 1st_token
             if re.search("First token average latency:", line):
                 first_token=re.findall('\d+\.\d+', line)[0]
                 single_loop_list.append(float(first_token))
                 print("first_token:", float(first_token))
+            # Get 2nd_token
             if re.search("Average 2... latency:", line):
                 second_token=re.findall('\d+\.\d+', line)[0]
                 single_loop_list.append(float(second_token))
                 print("second_token:",float(second_token))
+            # Get dashboard link
             if re.search("WSF Portal URL:", line):
                 dashboard_link = re.findall('https://.*', line)[0]
-                # single_loop_list.append(dashboard_link)
                 print(dashboard_link)
+            # Get frequency
             if re.search("Current\s+\d+-\d+-\w+.*", line):
                 loop_time=re.findall('([0-9])', line)[0]
                 current_frequency=re.findall('\d.\dGhz', line)[0]
                 print("loop_time and current_frequency:", loop_time, current_frequency)
-                #single_file_dict[current_frequency] = single_loop_list
-                # single_file_dict[current_frequency] = {'kpi_values':single_loop_list, 'dashboard_link': dashboard_link}
                 link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, float(latency))
                 single_loop_list.insert(0, link)
                 single_file_dict[current_frequency] = single_loop_list
