@@ -58,26 +58,26 @@ def parse_to_excel(platform, report_path, log_file_name):
             if re.search("Inference latency:", line):
                 single_loop_list = []
                 latency=re.findall('\d+\.\d+', line)[0]
-                print("latency:", float(latency))
+                # print("latency:", float(latency))
             # Get 1st_token
             if re.search("First token average latency:", line):
                 first_token=re.findall('\d+\.\d+', line)[0]
                 single_loop_list.append(float(first_token))
-                print("first_token:", float(first_token))
+                # print("first_token:", float(first_token))
             # Get 2nd_token
             if re.search("Average 2... latency:", line):
                 second_token=re.findall('\d+\.\d+', line)[0]
                 single_loop_list.append(float(second_token))
-                print("second_token:",float(second_token))
+                # print("second_token:",float(second_token))
             # Get dashboard link
             if re.search("WSF Portal URL:", line):
                 dashboard_link = re.findall('https://.*', line)[0]
-                print(dashboard_link)
+                # print(dashboard_link)
             # Get frequency
             if re.search("Current\s+\d+-\d+-\w+.*", line):
                 loop_time=re.findall('([0-9])', line)[0]
                 current_frequency=re.findall('\d.\dGhz', line)[0]
-                print("loop_time and current_frequency:", loop_time, current_frequency)
+                # print("loop_time and current_frequency:", loop_time, current_frequency)
                 link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, float(latency))
                 single_loop_list.insert(0, link)
                 single_file_dict[current_frequency] = single_loop_list
@@ -86,21 +86,46 @@ def parse_to_excel(platform, report_path, log_file_name):
     return logfile_result
 
 def create_sum(data):
+    """create dict of the same batch_size 
+
+    Args:
+        data (list): [{'core': '50', 'precision': 'bfloat16', 'batch_size': '1', 'kpi': {'2.8Ghz':
+                      ['=HYPERLINK("https://wsf-dashboards.intel.com/services-framework/perfkitruns/run_uri/04a3fa32-1023-47f2-acf4-1de06d4ec916", "8.652")', 0.892, 0.061]}]
+
+    Returns:
+        _type_: dict
+        value: grouped_dict
+    """
     grouped_dict = {}
     for x in data:
         if x['batch_size'] not in grouped_dict:
             grouped_dict[x['batch_size']] = [x]
         else:
             grouped_dict[x['batch_size']].append(x)
-    
     return grouped_dict
 
 def set_index(core):
+    """Create multi index
+
+    Args:
+        core (int): core
+
+    Returns:
+        _type_: function
+        value: multi_index
+    """
     multi_index = pd.MultiIndex.from_tuples([(core, "2.8Ghz"), (core, "3.0Ghz"), (core, "3.2Ghz"), (core, "3.4Ghz"), (core, "3.6Ghz"),
                                              (core, "3.8Ghz")], names=['core', 'fre'])
     return multi_index
 
 def set_style(df, sheet_name, column_no=0):
+    """Setting sheet style
+
+    Args:
+        df (dataframe): a dataframe
+        sheet_name (string): the name of sheet
+        column_no (int, optional): add columns num. Defaults to 0.
+    """
     workbook = writer.book
     worksheet = writer.sheets[sheet_name]
     
