@@ -1,0 +1,26 @@
+
+./ctest.sh -R  pkm --prepare-sut -V
+
+./ctest.sh -R ...$ --loop=1 --reuse-sut -V
+
+
+GPT-J Dev, Llama2 Dev (only latency mode):
+
+amx_bfloat16 (emon+vtune+onednn verbose)
+amx_bfloat16+deepspeed (emon+vtune+onednn verbose)
+amx_int8 (emon+vtune+onednn verbose)
+
+GPT-J OOB, Llama2 OOB (only latency mode):
+
+ bfloat16 (emon+vtune+onednn verbose)
+
+intel-oneapi-vtune=2023.1.0
+--intel_publish
+
+./ctest.sh -R pkm --set "STEPS=20/PRECISION=amx_bfloat16 amx_int8/INPUT_TOKENS=32 1024/ONEDNN_VERBOSE=1" --loop=4 --reuse-sut -V
+
+
+./ctest.sh -R pkm --set "STEPS=20/PRECISION=amx_bfloat16/INPUT_TOKENS=32,1024/ONEDNN_VERBOSE=1" --set "MODEL_PATH=/mnt/nfs_share/huggingface/hub/" --loop=2 --reuse-sut -V
+
+
+ cmake  -DREGISTRY=172.17.29.24:20666 -DBACKEND=terraform -DTERRAFORM_OPTIONS=" --docker --svrinfo --emon --vtune --owner=sf-ai-kun  --tags=24.8,LLM,Dev" -DTERRAFORM_SUT=static -DBENCHMARK= ..
