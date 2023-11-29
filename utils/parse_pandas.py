@@ -1,10 +1,35 @@
 import re
 import os
+import shutil
 import xlsxwriter
 import pickle
+import argparse
+import logging
+import time
 import pandas as pd
 import numpy as np
-import argparse
+
+def create_dir_or_file(path):
+    if os.path.isfile(path):
+        os.remove(path)
+    else:
+        if not os.path.exists(path):
+            os.makedirs(path)
+            if os.path.exists(path):
+                print("Directory {0} already created".format(path))
+        else:
+            if re.match("build", path):
+                shutil.rmtree(path)
+                print("Directory or file {0} already deleted".format(path))
+                create_dir_or_file()
+
+def create_log(log_path, log_name):
+    current_date = time.strftime("%Y%m%d")
+    current_time = time.strftime("%H_%M_%S")
+    log_dir = "{}/log/{}".format(log_path, current_date)
+    create_dir_or_file(log_dir)
+    log_full_path = "{}/{}_{}.log".format(log_dir, log_name, current_time)
+    return log_full_path
 
 
 def check_and_create_dir(path):
@@ -48,6 +73,9 @@ def parse_to_excel(platform, report_path, log_file_name):
     parse log to excel
     """
     logfile_result = parse_log_name(log_file_name)
+    
+    logging.info('Current logfile result: {0}'.format(logfile_result))
+    
     logfile_fullpath = os.path.join(report_path,log_file_name)
     single_file_dict = {}
     #Read output log file
@@ -58,29 +86,33 @@ def parse_to_excel(platform, report_path, log_file_name):
             if re.search("Inference latency:", line):
                 single_loop_list = []
                 latency=re.findall('\d+\.\d+', line)[0]
-                # print("latency:", float(latency))
+                
             # Get 1st_token
             if re.search("First token average latency:", line):
                 first_token=re.findall('\d+\.\d+', line)[0]
                 single_loop_list.append(float(first_token))
-                # print("first_token:", float(first_token))
             # Get 2nd_token
             if re.search("Average 2... latency:", line):
                 second_token=re.findall('\d+\.\d+', line)[0]
                 single_loop_list.append(float(second_token))
-                # print("second_token:",float(second_token))
             # Get dashboard link
             if re.search("WSF Portal URL:", line):
                 dashboard_link = re.findall('https://.*', line)[0]
-                # print(dashboard_link)
+
             # Get frequency
             if re.search("Current\s+\d+-\d+-\w+.*", line):
                 loop_time=re.findall('([0-9])', line)[0]
                 current_frequency=re.findall('\d.\dGhz', line)[0]
-                # print("loop_time and current_frequency:", loop_time, current_frequency)
                 link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, float(latency))
                 single_loop_list.insert(0, link)
                 single_file_dict[current_frequency] = single_loop_list
+                logging.info('loop_time: {0}'.format(int(loop_time)))
+                logging.info('frequency: {0}'.format( current_frequency))
+                logging.info('latency: {0}'.format(float(latency)))
+                logging.info('first_token: {0}'.format(float(first_token)))
+                logging.info('second_token: {0}'.format(float(second_token)))
+                logging.info('dashboard_link: {0}'.format(dashboard_link))
+
     
     logfile_result['kpi'] = single_file_dict
     return logfile_result
@@ -90,7 +122,7 @@ def create_sum(data):
 
     Args:
         data (list): [{'core': '50', 'precision': 'bfloat16', 'batch_size': '1', 'kpi': {'2.8Ghz':
-                      ['=HYPERLINK("https://wsf-dashboards.intel.com/services-framework/perfkitruns/run_uri/04a3fa32-1023-47f2-acf4-1de06d4ec916", "8.652")', 0.892, 0.061]}]
+                      ['=HYPERLINK("https://wsf-dashboards.intel.com", "8.652")', 0.892, 0.061]}]
 
     Returns:
         _type_: dict
@@ -131,6 +163,18 @@ def set_style(df, sheet_name, column_no=0):
     
     border_fmt = workbook.add_format({'bottom':1, 'top':1, 'left':1, 'right':1})
     worksheet.conditional_format(xlsxwriter.utility.xl_range(0, 0, len(df), len(df.columns)+column_no), {'type': 'no_errors', 'format': border_fmt})
+    
+
+base_path='/home/yangkun/lab/yangkunx/build-gptj/workload/GPTJ-PyTorch-Public/report'
+
+#定义日志文件路径，如果存在则删除
+log_full_path =  create_log('./', 'run_case')
+
+#定义logging
+level = logging.INFO
+format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+handlers = [logging.FileHandler(log_full_path), logging.StreamHandler()]
+logging.basicConfig(level = level, format = format, handlers = handlers)
 
 parser = argparse.ArgumentParser('Auto run the specify WL case', add_help=False)
 parser.add_argument("--platform", "--p", default="SPR", type=str, help="hardware platform")
@@ -138,14 +182,14 @@ parser.add_argument("--platform", "--p", default="SPR", type=str, help="hardware
 pass_args = parser.parse_args()
 platform = pass_args.platform
 
-base_path='/home/yangkun/lab/yangkunx/build-gptj/workload/GPTJ-PyTorch-Public/report'
-
 if platform.lower() == "spr":
     report_path='{0}/{1}'.format(base_path,'spr-bz-fre-core')
 elif platform.lower() == "emr":
     report_path='{0}/{1}'.format(base_path,'emr')  
 else:
     exit(1)
+
+logging.info('Starting parse the logs')
 
 check_and_create_dir(os.path.join(report_path,"output"))
 
@@ -189,3 +233,4 @@ with pd.ExcelWriter('output.xlsx') as writer:
         df = pd.DataFrame(result_df, columns=cols, index=index)
         df.to_excel(writer, sheet_name=sheet_name, index_label="Fre")
         set_style(df, sheet_name)
+logging.info('End parse the logs')
