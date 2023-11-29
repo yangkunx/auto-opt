@@ -96,7 +96,12 @@ def create_sum(data):
     
     return grouped_dict
 
-def set_style(df, sheet_name, column_no):
+def set_index(core):
+    multi_index = pd.MultiIndex.from_tuples([(core, "2.8Ghz"), (core, "3.0Ghz"), (core, "3.2Ghz"), (core, "3.4Ghz"), (core, "3.6Ghz"),
+                                             (core, "3.8Ghz")], names=['core', 'fre'])
+    return multi_index
+
+def set_style(df, sheet_name, column_no=0):
     workbook = writer.book
     worksheet = writer.sheets[sheet_name]
     
@@ -131,7 +136,7 @@ storeData(last_re, "re.pickle")
 # loadData("re.pickle")
 # print(last_re)
 sheet_list = []
-with pd.ExcelWriter('output-1.xlsx') as writer:
+with pd.ExcelWriter('output.xlsx') as writer:
     cols = ["Avg", "1st", "2nd"] 
     bs_class = create_sum(last_re)
     for key, value in bs_class.items():
@@ -139,15 +144,16 @@ with pd.ExcelWriter('output-1.xlsx') as writer:
             sheet_name = '{0}_{1}'.format(bs_sample['precision'], int(key))
             sun = list(bs_sample['kpi'].keys())
         index = [i for i in sun]
-        df_list = [ pd.DataFrame(list(bs_value['kpi'].values()) , columns=cols, index=index) for bs_value in value ]
+        df_list = [ pd.DataFrame(list(bs_value['kpi'].values()), columns=cols,index=set_index(int(bs_value['core']))).reset_index('fre') for bs_value in value ]
         dist = []
+        em_multi_index = pd.MultiIndex.from_tuples([(np.nan, np.nan)], names=['core', 'fre'])
         for d in df_list:
             dist.append(d)
-            empty_df = pd.DataFrame([[np.nan] * len(d.columns)], columns=d.columns, index=[None])
+            empty_df = pd.DataFrame([[np.nan] * len(d.columns)], columns=d.columns, index=em_multi_index).reset_index('fre', drop=True)
             dist.append(empty_df)
-        df= pd.concat(dist,  keys=['50', np.nan, '52', np.nan, '54', np.nan, '56'])
-        df.to_excel(writer, sheet_name=sheet_name, index_label=['core', 'fre'])
-        set_style(df, sheet_name, 1)
+        df= pd.concat(dist)
+        df.to_excel(writer, sheet_name=sheet_name)
+        set_style(df, sheet_name)
     
     for value in last_re:
         result_df = list(value['kpi'].values())
@@ -158,4 +164,4 @@ with pd.ExcelWriter('output-1.xlsx') as writer:
         sheet_list.append(sheet_name)       
         df = pd.DataFrame(result_df, columns=cols, index=index)
         df.to_excel(writer, sheet_name=sheet_name, index_label="Fre")
-        set_style(df, sheet_name, 0)
+        set_style(df, sheet_name)
