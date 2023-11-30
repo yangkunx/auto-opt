@@ -3,3 +3,6 @@
 /.vscode
 */*.xlsx
 /log
+/utils/log
+/output.xlsx
+/re.pickle
