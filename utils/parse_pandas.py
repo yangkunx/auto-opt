@@ -86,25 +86,32 @@ def parse_to_excel(platform, report_path, log_file_name):
             if re.search("Inference latency:", line):
                 single_loop_list = []
                 latency=re.findall('\d+\.\d+', line)[0]
-                
             # Get 1st_token
             if re.search("First token average latency:", line):
                 first_token=re.findall('\d+\.\d+', line)[0]
-                single_loop_list.append(float(first_token))
+                try:
+                    single_loop_list.append(float(first_token))
+                except UnboundLocalError:
+                    logging.error("cannot access local variable '{}' where it is not associated with a value".format("first_token"))
             # Get 2nd_token
             if re.search("Average 2... latency:", line):
                 second_token=re.findall('\d+\.\d+', line)[0]
-                single_loop_list.append(float(second_token))
+                try:
+                    single_loop_list.append(float(second_token))
+                except UnboundLocalError:
+                    logging.error("cannot access local variable '{}' where it is not associated with a value".format("second_token"))
             # Get dashboard link
             if re.search("WSF Portal URL:", line):
                 dashboard_link = re.findall('https://.*', line)[0]
-
             # Get frequency
             if re.search("Current\s+\d+-\d+-\w+.*", line):
                 loop_time=re.findall('([0-9])', line)[0]
                 current_frequency=re.findall('\d.\dGhz', line)[0]
-                link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, float(latency))
-                single_loop_list.insert(0, link)
+                try:
+                    link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, float(latency))
+                    single_loop_list.insert(0, link)
+                except UnboundLocalError:
+                    logging.error("cannot access local variable '{} or {} or ' where it is not associated with a value".format("dashboard_link", "latency", "link"))
                 single_file_dict[current_frequency] = single_loop_list
                 logging.info('loop_time: {0}'.format(int(loop_time)))
                 logging.info('frequency: {0}'.format( current_frequency))
@@ -183,12 +190,13 @@ pass_args = parser.parse_args()
 platform = pass_args.platform
 
 if platform.lower() == "spr":
-    report_path='{0}/{1}'.format(base_path,'spr-bz-fre-core')
+    report_path='{0}/{1}'.format(base_path,'spr-bfloat16-emon')
 elif platform.lower() == "emr":
     report_path='{0}/{1}'.format(base_path,'emr')  
 else:
     exit(1)
 
+logging.info('logs path: {}'.format(report_path))
 logging.info('Starting parse the logs')
 
 check_and_create_dir(os.path.join(report_path,"output"))
@@ -204,7 +212,7 @@ storeData(last_re, "re.pickle")
 # loadData("re.pickle")
 # print(last_re)
 sheet_list = []
-with pd.ExcelWriter('output.xlsx') as writer:
+with pd.ExcelWriter('output-emon.xlsx') as writer:
     cols = ["Avg", "1st", "2nd"] 
     bs_class = create_sum(last_re)
     for key, value in bs_class.items():
@@ -212,13 +220,13 @@ with pd.ExcelWriter('output.xlsx') as writer:
             sheet_name = '{0}_{1}'.format(bs_sample['precision'], int(key))
             sun = list(bs_sample['kpi'].keys())
         index = [i for i in sun]
-        df_list = [ pd.DataFrame(list(bs_value['kpi'].values()), columns=cols,index=set_index(int(bs_value['core']))).reset_index('fre') for bs_value in value ]
-        dist = []
-        em_multi_index = pd.MultiIndex.from_tuples([(np.nan, np.nan)], names=['core', 'fre'])
-        for d in df_list:
-            dist.append(d)
-            empty_df = pd.DataFrame([[np.nan] * len(d.columns)], columns=d.columns, index=em_multi_index).reset_index('fre', drop=True)
-            dist.append(empty_df)
+        dist = [ pd.DataFrame(list(bs_value['kpi'].values()), columns=cols,index=set_index(int(bs_value['core']))).reset_index('fre') for bs_value in value ]
+        # dist = []
+        # em_multi_index = pd.MultiIndex.from_tuples([(np.nan, np.nan)], names=['core', 'fre'])
+        # for d in df_list:
+        #     dist.append(d)
+        #     empty_df = pd.DataFrame([[np.nan] * len(d.columns)], columns=d.columns, index=em_multi_index).reset_index('fre', drop=True)
+        #     dist.append(empty_df)
         df= pd.concat(dist)
         df.to_excel(writer, sheet_name=sheet_name)
         set_style(df, sheet_name)
