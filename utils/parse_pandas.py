@@ -104,6 +104,10 @@ def parse_to_excel(platform, report_path, log_file_name):
             # Get dashboard link
             if re.search("WSF Portal URL:", line):
                 dashboard_link = re.findall('https://.*', line)[0]
+                dashboard_id = dashboard_link.split("/")[-1]
+                zip_link = 'https://d15e4ftowigvkb.cloudfront.net/{}-gptj_pytorch_public.zip'.format(dashboard_id)
+                logging.info(zip_link)
+                # if add zip_link: single_loop_list.append(zip_link)
             # Get frequency
             if re.search("Current\s+\d+-\d+-\w+.*", line):
                 loop_time=re.findall('([0-9])', line)[0]
@@ -123,6 +127,7 @@ def parse_to_excel(platform, report_path, log_file_name):
 
     
     logfile_result['kpi'] = single_file_dict
+
     return logfile_result
 
 def create_sum(data):
