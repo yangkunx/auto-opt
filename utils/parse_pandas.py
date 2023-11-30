@@ -83,6 +83,7 @@ def parse_to_excel(platform, report_path, log_file_name):
         lines = ds_log.readlines()
         for line in lines:
             # Get latency
+            # logging.info(re.search("Inference latency:", line))
             if re.search("Inference latency:", line):
                 single_loop_list = []
                 latency=re.findall('\d+\.\d+', line)[0]
@@ -190,12 +191,13 @@ pass_args = parser.parse_args()
 platform = pass_args.platform
 
 if platform.lower() == "spr":
-    report_path='{0}/{1}'.format(base_path,'spr-bfloat16-emon')
+    type_dir = 'spr-bfloat16-emon' 
 elif platform.lower() == "emr":
-    report_path='{0}/{1}'.format(base_path,'emr')  
+    type_dir = 'emr'
 else:
     exit(1)
 
+report_path='{0}/{1}'.format(base_path, type_dir)
 logging.info('logs path: {}'.format(report_path))
 logging.info('Starting parse the logs')
 
@@ -212,7 +214,8 @@ storeData(last_re, "re.pickle")
 # loadData("re.pickle")
 # print(last_re)
 sheet_list = []
-with pd.ExcelWriter('output-emon.xlsx') as writer:
+output_excel = 'output-{}.xlsx'.format(type_dir)
+with pd.ExcelWriter(output_excel) as writer:
     cols = ["Avg", "1st", "2nd"] 
     bs_class = create_sum(last_re)
     for key, value in bs_class.items():
@@ -221,12 +224,15 @@ with pd.ExcelWriter('output-emon.xlsx') as writer:
             sun = list(bs_sample['kpi'].keys())
         index = [i for i in sun]
         dist = [ pd.DataFrame(list(bs_value['kpi'].values()), columns=cols,index=set_index(int(bs_value['core']))).reset_index('fre') for bs_value in value ]
-        # dist = []
-        # em_multi_index = pd.MultiIndex.from_tuples([(np.nan, np.nan)], names=['core', 'fre'])
-        # for d in df_list:
-        #     dist.append(d)
-        #     empty_df = pd.DataFrame([[np.nan] * len(d.columns)], columns=d.columns, index=em_multi_index).reset_index('fre', drop=True)
-        #     dist.append(empty_df)
+        """
+        below code is added empty row to excel when concat the sheet
+            dist = []
+            em_multi_index = pd.MultiIndex.from_tuples([(np.nan, np.nan)], names=['core', 'fre'])
+            for d in df_list:
+                dist.append(d)
+                empty_df = pd.DataFrame([[np.nan] * len(d.columns)], columns=d.columns, index=em_multi_index).reset_index('fre', drop=True)
+                dist.append(empty_df)
+        """
         df= pd.concat(dist)
         df.to_excel(writer, sheet_name=sheet_name)
         set_style(df, sheet_name)
