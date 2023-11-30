@@ -5,26 +5,71 @@ dashboadtags:
     - LLM,Dev,DeepSpeed
     - LLM,OOB,DeepSpeed
 WorkLoad:
-    GPTJ-PyTorch-Dev:
+    LLMs-IPEXBench-Dev:
         test_cases:
             - pkm
             - accuracy
         special_args:
             MODEL_NAME:
+                - baichuan-inc/Baichuan2-13B-Chat: /opt/dataset/baichuan2
+                - meta-llama/Llama-2-7b-chat-hf: /opt/dataset/llama2
+                - meta-llama/Llama-2-13b-chat-hf: /mnt/nfs_share/huggingface/hub/llama2-13b
                 - EleutherAI/gpt-j-6b: /mnt/nfs/huggingface/hub/gptj-6b
+                - THUDM/chatglm2-6b: /opt/dataset/chatglm2
         set_args:
             STEPS: 20
             USE_DEEPSPEED: True
             RANK_USE: all
             ONEDNN_VERBOSE: 0
             PRECISION:
-                - amx_bfloat16
-                - amx_int8
+                - bfloat16
             INPUT_TOKENS:
-                - 32
                 - 1024
             OUTPUT_TOKENS:
                 - 32
+                - 128
+    xFTBench:
+        test_cases:
+            - pkm
+            - accuracy
+        special_args:
+            MODEL_NAME:
+                - baichuan2-13b: /mnt/nfs_share/xft/baichuan2-xft
+                - llama-2-7b: /mnt/nfs_share/xft/llama2-xft
+                - llama-2-13b: /mnt/nfs_share/xft/llama2-xft
+                - chatglm2-6b: /mnt/nfs_share/xft/chatglm2-xft
+        set_args:
+            STEPS: 20
+            USE_DEEPSPEED: True
+            RANK_USE: all
+            ONEDNN_VERBOSE: 0
+            PRECISION:
+                - bf16_fp16
+            INPUT_TOKENS:
+                - 1024
+            OUTPUT_TOKENS:
+                - 32
+                - 128
+    # GPTJ-PyTorch-Dev:
+    #     test_cases:
+    #         - pkm
+    #         - accuracy
+    #     special_args:
+    #         MODEL_NAME:
+    #             - EleutherAI/gpt-j-6b: /mnt/nfs/huggingface/hub/gptj-6b
+    #     set_args:
+    #         STEPS: 20
+    #         USE_DEEPSPEED: True
+    #         RANK_USE: all
+    #         ONEDNN_VERBOSE: 0
+    #         PRECISION:
+    #             - amx_bfloat16
+    #             - amx_int8
+    #         INPUT_TOKENS:
+    #             - 32
+    #             - 1024
+    #         OUTPUT_TOKENS:
+    #             - 32
     # Llama2-PyTorch-Dev:
     #     test_cases:
     #         - pkm
@@ -46,25 +91,25 @@ WorkLoad:
     #             - 1024
     #         OUTPUT_TOKENS:
     #             - 32
-    OPT-PyTorch-Dev:
-        test_cases:
-            - pkm
-            - accuracy
-        special_args:
-            MODEL_NAME:
-                - facebook/opt-1.3b: /opt/dataset/opt/1b3
-        set_args:
-            STEPS: 20
-            USE_DEEPSPEED: True
-            ONEDNN_VERBOSE: 0 
-            PRECISION:
-                - amx_bfloat16
-                - amx_int8
-            INPUT_TOKENS:
-                - 32
-                - 1024
-            OUTPUT_TOKENS:
-                - 32
+    # OPT-PyTorch-Dev:
+    #     test_cases:
+    #         - pkm
+    #         - accuracy
+    #     special_args:
+    #         MODEL_NAME:
+    #             - facebook/opt-1.3b: /opt/dataset/opt/1b3
+    #     set_args:
+    #         STEPS: 20
+    #         USE_DEEPSPEED: True
+    #         ONEDNN_VERBOSE: 0 
+    #         PRECISION:
+    #             - amx_bfloat16
+    #             - amx_int8
+    #         INPUT_TOKENS:
+    #             - 32
+    #             - 1024
+    #         OUTPUT_TOKENS:
+    #             - 32
     # GPTJ-PyTorch-OOB:
     #     test_cases:
     #         - pkm

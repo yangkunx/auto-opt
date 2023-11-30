@@ -5,6 +5,7 @@ import argparse
 import shlex
 import copy
 import time, os, re
+import shutil
 from glob import glob
 from itertools import product
 from subprocess import PIPE, Popen
@@ -228,7 +229,7 @@ class Test_case():
                                 logging.info('\033[32mTest_case:\033[0m {0}'.format(run_args))
                                 self.__run_command(run_args, log_path=logs_path, ds_log_path=ds_log_path, base_args=base_args, wl_name=wl_name)
         elif backend_run == "docker":
-            all_cases_dict = Cartesian(kwargs)
+            all_cases_dict = self.__Cartesian(kwargs)
             for set_args in all_cases_dict:
                 base_args = ""
                 for key, value in set_args.items():
@@ -255,7 +256,7 @@ class Test_case():
                 for test_case in self.args['test_cases']:
                     recipe_type_args = copy.deepcopy(self.args['set_args'])
                     if self.use_deepspeed:
-                        if tag_recipe_type == "OOB":
+                        if self.tag_recipe_type == "OOB":
                             recipe_type_args['PRECISION'] = ['bfloat16']
                         else:
                             recipe_type_args['PRECISION'] = ['amx_bfloat16']
@@ -308,10 +309,10 @@ def chdir(path):
     return parent_dir
 
 
-yaml_path = "/home/yangkun/lab/yangkunx/autorun/wl.yaml"
-base_path = "/home/yangkun/lab/yangkunx"
+yaml_path = "/home/yangkun/lab/auto-opt/autorun/wl.yaml"
+base_path = "/home/yangkun/lab/auto-opt"
 yaml_name = "wl.yaml"
-repo_dir_name = 'ww38_new'
+repo_dir_name = 'abbp'
 branch_name = "ww38"
 build_name = "build"
 repo_url = "https://github.com/yangkunx/applications.benchmarking.benchmark.platform-hero-features.git"
@@ -331,6 +332,7 @@ parser.add_argument("--nightly", "--n", default="ww22.1", type=str, help="tag ni
 parser.add_argument("--backend", "--b", default="terraform", type=str, help="wsf run backend")
 parser.add_argument("--platform", "--p", default="SPR", type=str, help="wsf run platform")
 parser.add_argument("--dry-run", "--d", action="store_true", help="dry run")
+parser.add_argument("--tag", "--t", type=str, help="Specify dashboard tag")
 
 pass_args = parser.parse_args()
 nightly = pass_args.nightly
@@ -338,11 +340,12 @@ host = pass_args.host
 backend = pass_args.backend
 platform = pass_args.platform
 dry_run = pass_args.dry_run
+tag = pass_args.tag
 
-logging.info('Current pass argument: {}'.format({'nightly': nightly, 'host': host, 'backend': backend, 'platform': platform, 'dry_run': dry_run}))
+logging.info('Current pass argument: {}'.format({'nightly': nightly, 'host': host, 'backend': backend, 'platform': platform, 'dry_run': dry_run , 'tag': tag}))
 
 llm = Get_wsf_code(base_path, repo_url, repo_dir_name, branch_name)
-llm.get_code()
+#llm.get_code()
 
 #切换到wsf代码的目录
 wsf_path = os.path.join(base_path,'autorun', repo_dir_name)
