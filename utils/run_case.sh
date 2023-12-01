@@ -102,13 +102,13 @@ function run_with_platform(){
         for BATCH_SIZE in ${BATCH_SIZES}
         do
             if [[ ${HARDWARE_PLATFORM} == "emr" ]]; then
-                output_dir=${base_dir}/${HARDWARE_PLATFORM}
+                output_dir=${base_dir}/${HARDWARE_PLATFORM}/${PRECISION}
                 mkdir -p ${output_dir}
                 SET_ARGS="INPUT_TOKENS=1024/OUTPUT_TOKENS=128/USE_DEEPSPEED=True/PRECISION=${PRECISION}/BATCH_SIZE=${BATCH_SIZE}"
                 output_log=${output_dir}/c_56_${PRECISION}_${BATCH_SIZE}.log
                 run_with_n_cores -s "${SET_ARGS}" -l "${LOOP}" -f "${FREQUENCYS}" -p "${PRECISION}" -b "${BATCH_SIZES}" 2>&1 | tee ${output_log}
             elif [[ ${HARDWARE_PLATFORM} == "spr" ]]; then
-                output_dir=${base_dir}/${HARDWARE_PLATFORM}
+                output_dir=${base_dir}/${HARDWARE_PLATFORM}/${PRECISION}
                 mkdir -p ${output_dir}
                 for CORE in $CORES
                 do
