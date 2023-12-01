@@ -63,9 +63,13 @@ def parse_log_name(log_file):
     """
     logfile_result = {}
     logfile_info = os.path.splitext(log_file)[0].split('_')
+    
+    if "int" in log_file:
+        logfile_result['precision'] = "{}_{}".format(logfile_info[2], logfile_info[3])
+    else:
+        logfile_result['precision'] = logfile_info[2]
     logfile_result['core'] = logfile_info[1]
-    logfile_result['precision'] = logfile_info[2]
-    logfile_result['batch_size'] = logfile_info[3]
+    logfile_result['batch_size'] = logfile_info[-1]
     return logfile_result
 
 def parse_to_excel(platform, report_path, log_file_name):
@@ -190,19 +194,21 @@ handlers = [logging.FileHandler(log_full_path), logging.StreamHandler()]
 logging.basicConfig(level = level, format = format, handlers = handlers)
 
 parser = argparse.ArgumentParser('Auto run the specify WL case', add_help=False)
-parser.add_argument("--platform", "--p", default="SPR", type=str, help="hardware platform")
+parser.add_argument("--hardware", "--h", default="SPR", type=str, help="hardware platform")
+parser.add_argument("--precison", "--p", default="bfloat16", type=str, help="precision")
 
 pass_args = parser.parse_args()
-platform = pass_args.platform
+platform = pass_args.hardware
+precison = pass_args.precison
 
 if platform.lower() == "spr":
-    type_dir = 'spr-bfloat16-emon' 
+    plat_dir = 'spr'
 elif platform.lower() == "emr":
-    type_dir = 'emr'
+    plat_dir = 'emr'
 else:
     exit(1)
 
-report_path='{0}/{1}'.format(base_path, type_dir)
+report_path='{0}/{1}'.format(base_path, "{}/{}".format(plat_dir, precison))
 logging.info('logs path: {}'.format(report_path))
 logging.info('Starting parse the logs')
 
@@ -219,13 +225,13 @@ storeData(last_re, "re.pickle")
 # loadData("re.pickle")
 # print(last_re)
 sheet_list = []
-output_excel = 'output-{}.xlsx'.format(type_dir)
+output_excel = '{}_{}.xlsx'.format(platform.lower(),precison)
 with pd.ExcelWriter(output_excel) as writer:
     cols = ["Avg", "1st", "2nd"] 
     bs_class = create_sum(last_re)
     for key, value in bs_class.items():
         for bs_sample in value:
-            sheet_name = '{0}_{1}'.format(bs_sample['precision'], int(key))
+            sheet_name = '{0}_{1}'.format(bs_sample['precision'], str(key))
             sun = list(bs_sample['kpi'].keys())
         index = [i for i in sun]
         dist = [ pd.DataFrame(list(bs_value['kpi'].values()), columns=cols,index=set_index(int(bs_value['core']))).reset_index('fre') for bs_value in value ]
