@@ -8,6 +8,7 @@ import time
 import os
 import re
 import shutil
+import exceptions
 from itertools import product
 from subprocess import PIPE, Popen
 from git import RemoteProgress
@@ -119,14 +120,14 @@ class Get_wsf_code():
                 try:
                     self.__clone("develop")
                     return True
-                except IndexError:
+                except exceptions:
                     logging.error("Remote: {} Repository not found.".format("develop"))
                     return False
             else:
                 try:
                     self.__clone(self.branch)
                     return True
-                except IndexError:
+                except exceptions:
                     logging.error("Remote: {} Repository not found.".format(self.branch))
                     return False
         else:
