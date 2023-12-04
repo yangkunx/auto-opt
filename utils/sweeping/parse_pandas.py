@@ -182,7 +182,7 @@ def set_style(df, sheet_name, column_no=0):
     worksheet.conditional_format(xlsxwriter.utility.xl_range(0, 0, len(df), len(df.columns)+column_no), {'type': 'no_errors', 'format': border_fmt})
     
 
-base_path='/home/yangkun/lab/yangkunx/build-gptj/workload/GPTJ-PyTorch-Public/report'
+# base_path='/home/yangkun/lab/yangkunx/build-gptj/workload/GPTJ-PyTorch-Public/report'
 
 #定义日志文件路径，如果存在则删除
 log_full_path =  create_log('./', 'run_case')
@@ -196,10 +196,12 @@ logging.basicConfig(level = level, format = format, handlers = handlers)
 parser = argparse.ArgumentParser('Auto run the specify WL case', add_help=False)
 parser.add_argument("--hardware", "--h", default="SPR", type=str, help="hardware platform")
 parser.add_argument("--precison", "--p", default="bfloat16", type=str, help="precision")
+parser.add_argument("--base_path", "--b", default="/home/yangkun/lab/yangkunx/build-gptj/workload/GPTJ-PyTorch-Public/report", type=str, help="the base path of logs")
 
 pass_args = parser.parse_args()
 platform = pass_args.hardware
 precison = pass_args.precison
+base_path = pass_args.base_path
 
 if platform.lower() == "spr":
     plat_dir = 'spr'

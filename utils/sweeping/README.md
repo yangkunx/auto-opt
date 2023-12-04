@@ -56,11 +56,15 @@ sh run_case.sh -d
 
 #### Execution the parse_pandas.py
 #### Parameters
-- **precision**: Specify the model precision, the supported precisions are `bfloat16` (default) or `woq_int8` (Weight only quantzation INT8) or `woq_int4` (Weight only quantzation INT4) or `static_int8` (Static quantzation INT8).
-- **platform**: Specify the hardware platform is `SPR` or `EMR`.
+- **--precision or --p**: Specify the model precision, the supported precisions are `bfloat16` (default) or `woq_int8` or `static_int8`.
+- **--hardware or --h**: Specify the hardware platform is `SPR` or `EMR`.
+- **--base_path or --b**: Specify the base path of logs, the default is `/home/yangkun/lab/yangkunx/build-gptj/workload/GPTJ-PyTorch-Public/report`.
 
 For example:
 
 ```
-sh run_case.sh --h "SPR" --p "bfloat16"
+python3 parse_pandas.py --p woq_int8 --h 'spr' --b '/home/yangkun/lab/yangkunx/build-gptj/workload/GPTJ-PyTorch-Public/report'
 ```
+#### output:  
+the path of output file is current path  
+the format of output file is hardware_precision.xlsx, such as spr_woq_int8.xlsx
