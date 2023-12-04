@@ -4,9 +4,10 @@ import logging
 import argparse
 import shlex
 import copy
-import time, os, re
+import time
+import os
+import re
 import shutil
-from glob import glob
 from itertools import product
 from subprocess import PIPE, Popen
 from git import RemoteProgress
@@ -91,7 +92,7 @@ class Get_wsf_code():
         checkout branch
         """
         logging.info("Checkout: checkout the branch")
-        if self.branch == None:
+        if self.branch:
             self.repo.git.checkout("develop")
         else:
             self.repo.git.checkout(self.branch)
@@ -114,18 +115,18 @@ class Get_wsf_code():
         logging.info("Repo_url: {0}".format(repo_url))
         if not self.__check_git_dir(self.repo_dir_name):
             logging.info("Clone: the wsf code is downloading")
-            if self.branch == None:
+            if self.branch:
                 try:
                     self.__clone("develop")
                     return True
-                except:
+                except IndexError:
                     logging.error("Remote: {} Repository not found.".format("develop"))
                     return False
             else:
                 try:
                     self.__clone(self.branch)
                     return True
-                except:
+                except IndexError:
                     logging.error("Remote: {} Repository not found.".format(self.branch))
                     return False
         else:
