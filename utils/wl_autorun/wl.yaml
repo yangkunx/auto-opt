@@ -8,7 +8,7 @@ WorkLoad:
     LLMs-IPEXBench-Dev:
         test_cases:
             - pkm
-            - accuracy
+            # - accuracy
         special_args:
             MODEL_NAME:
                 - baichuan-inc/Baichuan2-13B-Chat: /opt/dataset/baichuan2

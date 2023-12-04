@@ -138,7 +138,7 @@ class Test_case():
     """
     运行case
     """
-    def __init__(self, host=None, backend=None, platform=None, nightly_tag=None, tag_recipe_type=None, workload_name=None, args=None, use_deepspeed=False):
+    def __init__(self, host=None, backend=None, platform=None, nightly_tag=None, tag_recipe_type=None, workload_name=None, args=None, use_deepspeed=False, dry_run=False):
         self.tag_recipe_type = tag_recipe_type
         self.workload_name = workload_name
         self.args = args
@@ -147,6 +147,7 @@ class Test_case():
         self.platform = platform
         self.nightly_tag = nightly_tag
         self.use_deepspeed = use_deepspeed
+        self.dry_run = dry_run
 
     def __Cartesian(self, input_dict):
         args_values = product(*[v if isinstance(v, (list, tuple)) else [v] for v in input_dict.values()])
@@ -201,23 +202,27 @@ class Test_case():
             base_args = base_args[0:-1]
         return base_args, loop_sum
 
-    def __run_workloads(self, backend_run, test_case='pkm',special_args=None, logs_path="./wl_run.log", ds_log_path='./ds_url.log', wl_name=None, **kwargs):
+    def __run_workloads(self, backend_run, test_case='pkm',special_args=None, logs_path="./wl_run.log", ds_log_path='./ds_url.log', wl_name=None, dry_run=False, **kwargs):
         """
         #backend是docker和terraform的case执行
         """
-        self.__run_command('make', log_path=logs_path)
+        # if not dry_run:
+        #     self.__run_command('make', log_path=logs_path)
         if backend_run == "terraform":
             base_args, loop_sum = self.__format_args(test_case, **kwargs)
             #准备sut
+            
             run_args = './ctest.sh -R {0} --prepare-sut -V'.format(test_case)
             logging.info('\033[32mTest_case:\033[0m {0}'.format(run_args))
-            self.__run_command(run_args, log_path=logs_path)
+            if not dry_run:
+                self.__run_command(run_args, log_path=logs_path)
             #运行sut 
             sut_args = ' --loop={0} --reuse-sut -V'.format(loop_sum)
             if special_args is None:
                 run_args = './ctest.sh -R {0} --set "{1}"{2}'.format(test_case, base_args, sut_args)
                 logging.info('\033[32mTest_case:\033[0m {0}'.format(run_args))
-                self.__run_command(run_args, log_path=logs_path, ds_log_path=ds_log_path, base_args=base_args, wl_name=wl_name)
+                if not dry_run:
+                    self.__run_command(run_args, log_path=logs_path, ds_log_path=ds_log_path, base_args=base_args, wl_name=wl_name)
             else:
                 all_cases_list = self.__Cartesian(special_args)
                 for spec_args in all_cases_list:
@@ -227,7 +232,8 @@ class Test_case():
                                 model_path_value = '{0}={1}'.format('MODEL_PATH', model_path)
                                 run_args = './ctest.sh -R {0} --set "{1}" --set "{2}" --set "{3}"{4}'.format(test_case, model_name_value, model_path_value, base_args, sut_args)
                                 logging.info('\033[32mTest_case:\033[0m {0}'.format(run_args))
-                                self.__run_command(run_args, log_path=logs_path, ds_log_path=ds_log_path, base_args=base_args, wl_name=wl_name)
+                                if not dry_run:
+                                    self.__run_command(run_args, log_path=logs_path, ds_log_path=ds_log_path, base_args=base_args, wl_name=wl_name)
         elif backend_run == "docker":
             all_cases_dict = self.__Cartesian(kwargs)
             for set_args in all_cases_dict:
@@ -237,32 +243,34 @@ class Test_case():
                     base_args = base_args + arg_keys + "/"
                 run_args = './ctest.sh -R {0} --set "{1}" -V'.format(test_case, base_args[:-1])
                 logging.info('\033[32mTest_case:\033[0m {0}'.format(run_args))
-                # os.system('{0}'.format(run_args))
+                if not dry_run:
+                    # os.system('{0}'.format(run_args))
+                    pass
     
     def cmake(self):
-        logging.info('\033[32mcmake命令:\033[0m cmake  -DREGISTRY={0}:5000 -DBACKEND={1} -DPLATFORM={2} -DTERRAFORM_OPTIONS="--docker --svrinfo --intel_publish --owner=sf-ai-kun  --tags={3}" -DTERRAFORM_SUT=static -DBENCHMARK= .. '.format(self.host, self.backend, self.platform, self.nightly_tag))
-        self.__run_command('cmake  -DREGISTRY={0}:5000 -DBACKEND={1} -DPLATFORM={2} -DTERRAFORM_OPTIONS="--docker --svrinfo  --intel_publish --owner=sf-ai-kun  --tags={3}" -DTERRAFORM_SUT=static -DBENCHMARK= .. '.format(self.host, self.backend, self.platform, self.nightly_tag), log_path=log_full_path)
+        logging.info('\033[32mcmake命令:\033[0m cmake  -DREGISTRY={0}:20666 -DBACKEND={1} -DPLATFORM={2} -DTERRAFORM_OPTIONS="--docker --svrinfo --intel_publish --owner=sf-ai-kun  --tags={3}" -DTERRAFORM_SUT=static -DBENCHMARK= .. '.format(self.host, self.backend, self.platform, self.nightly_tag))
+        self.__run_command('cmake  -DREGISTRY={0}:20666 -DBACKEND={1} -DPLATFORM={2} -DTERRAFORM_OPTIONS="--docker --svrinfo  --intel_publish --owner=sf-ai-kun  --tags={3}" -DTERRAFORM_SUT=static -DBENCHMARK= .. '.format(self.host, self.backend, self.platform, self.nightly_tag), log_path=log_full_path)
 
     def scenes(self):
         if re.search(self.tag_recipe_type, self.workload_name):
-            if dry_run:
+            # if dry_run:
+            #     if self.use_deepspeed:
+            #         base_args = "USE_DEEPSPEED=True/STEPS=10"
+            #     else:
+            #         base_args = 'STEPS=10'
+            #     logging.info('\033[32mTest_case:\033[0m ./ctest.sh -R pkm --set "{0}"  -V'.format(base_args))
+            #     # os.system('./ctest.sh -R pkm --set "{0}"  -V'.format(base_args))
+            # else:
+            for test_case in self.args['test_cases']:
+                recipe_type_args = copy.deepcopy(self.args['set_args'])
                 if self.use_deepspeed:
-                    base_args = "USE_DEEPSPEED=True/STEPS=10"
-                else:
-                    base_args = 'STEPS=10'
-                logging.info('\033[32mTest_case:\033[0m ./ctest.sh -R pkm --set "{0}"  -V'.format(base_args))
-                os.system('./ctest.sh -R pkm --set "{0}"  -V'.format(base_args))
-            else:
-                for test_case in self.args['test_cases']:
-                    recipe_type_args = copy.deepcopy(self.args['set_args'])
-                    if self.use_deepspeed:
-                        if self.tag_recipe_type == "OOB":
-                            recipe_type_args['PRECISION'] = ['bfloat16']
-                        else:
-                            recipe_type_args['PRECISION'] = ['amx_bfloat16']
+                    if self.tag_recipe_type == "OOB":
+                        recipe_type_args['PRECISION'] = ['bfloat16']
                     else:
-                        recipe_type_args['USE_DEEPSPEED'] = False
-                    self.__run_workloads(backend, test_case, self.args['special_args'], log_full_path, dashboad_url_log, self.workload_name, **recipe_type_args)
+                        recipe_type_args['PRECISION'] = ['amx_bfloat16']
+                else:
+                    recipe_type_args['USE_DEEPSPEED'] = False
+                self.__run_workloads(backend, test_case, self.args['special_args'], log_full_path, dashboad_url_log, self.workload_name, self.dry_run, **recipe_type_args)
 
 
 def create_dir_or_file(path):
@@ -309,7 +317,6 @@ def chdir(path):
     return parent_dir
 
 
-yaml_path = "/home/yangkun/lab/auto-opt/utils/wl_autorun/wl.yaml"
 base_path = "/home/yangkun/lab/auto-opt/utils"
 yaml_name = "wl.yaml"
 repo_dir_name = 'abbp'
@@ -363,7 +370,7 @@ terraform_config_name = os.path.join(wsf_path, "script/terraform", "terraform-co
 os.system('sed -i "s/xwu2/yangkun/g; s/10.165.31.154/{0}/g; s/10.165.31.40/{0}/g" {1}'.format(host, terraform_config_name))
 logging.info("terraform的环境配置完成")
 
-yml_file_name = os.path.join(base_path, "autorun", yaml_name)
+yml_file_name = os.path.join(base_path, "wl_autorun", yaml_name)
 yaml_data = Parse_yaml(yml_file_name)
 
 for tag in yaml_data.get_tag():
@@ -371,7 +378,7 @@ for tag in yaml_data.get_tag():
     logging.info("\033[32mDashbord_tag:\033[0m {}".format(tag))
     nightly_tag = "{0},{1}".format(nightly, tag)
     #运行cmake 命令
-    wsf_case = Test_case(host=host, backend=backend, platform=platform, nightly_tag=nightly_tag)
+    wsf_case = Test_case(host=host, backend=backend, platform=platform, nightly_tag=nightly_tag, dry_run=dry_run)
     wsf_case.cmake()
     for wl, args in yaml_data.get_workload().items():
         if args is not None:
@@ -382,14 +389,14 @@ for tag in yaml_data.get_tag():
             #platform是EMR，那么只执行deepspeed,且只执行bfloat16
             if platform != "EMR":
                 if tag =="LLM,Dev":
-                    dev_case = Test_case(tag_recipe_type="Dev", workload_name=wl, args=args)
+                    dev_case = Test_case(tag_recipe_type="Dev", workload_name=wl, args=args, dry_run=dry_run)
                     dev_case.scenes()
                 if tag =="LLM,OOB":
-                    oob_case = Test_case(tag_recipe_type="OOB", workload_name=wl, args=args)
+                    oob_case = Test_case(tag_recipe_type="OOB", workload_name=wl, args=args, dry_run=dry_run)
                     oob_case.scenes()
             if tag =="LLM,OOB,DeepSpeed":
-                oob_ds_case = Test_case(tag_recipe_type="OOB", workload_name=wl, args=args, use_deepspeed=use_deepspeed)
+                oob_ds_case = Test_case(tag_recipe_type="OOB", workload_name=wl, args=args, use_deepspeed=use_deepspeed, dry_run=dry_run)
                 oob_ds_case.scenes()
             if tag =="LLM,Dev,DeepSpeed":
-                dev_ds_case = Test_case(tag_recipe_type="Dev", workload_name=wl, args=args, use_deepspeed=use_deepspeed)
+                dev_ds_case = Test_case(tag_recipe_type="Dev", workload_name=wl, args=args, use_deepspeed=use_deepspeed, dry_run=dry_run)
                 dev_ds_case.scenes()
