@@ -309,8 +309,8 @@ def chdir(path):
     return parent_dir
 
 
-yaml_path = "/home/yangkun/lab/auto-opt/autorun/wl.yaml"
-base_path = "/home/yangkun/lab/auto-opt"
+yaml_path = "/home/yangkun/lab/auto-opt/utils/wl_autorun/wl.yaml"
+base_path = "/home/yangkun/lab/auto-opt/utils"
 yaml_name = "wl.yaml"
 repo_dir_name = 'abbp'
 branch_name = "ww38"
@@ -348,7 +348,7 @@ llm = Get_wsf_code(base_path, repo_url, repo_dir_name, branch_name)
 #llm.get_code()
 
 #切换到wsf代码的目录
-wsf_path = os.path.join(base_path,'autorun', repo_dir_name)
+wsf_path = os.path.join(base_path,'wl_autorun', repo_dir_name)
 parent_dir = chdir(wsf_path)
 #拼接出需要创建build目录的完整路径
 build_path = os.path.join(parent_dir, build_name)

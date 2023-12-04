@@ -28,28 +28,28 @@ WorkLoad:
             OUTPUT_TOKENS:
                 - 32
                 - 128
-    xFTBench:
-        test_cases:
-            - pkm
-            - accuracy
-        special_args:
-            MODEL_NAME:
-                - baichuan2-13b: /mnt/nfs_share/xft/baichuan2-xft
-                - llama-2-7b: /mnt/nfs_share/xft/llama2-xft
-                - llama-2-13b: /mnt/nfs_share/xft/llama2-xft
-                - chatglm2-6b: /mnt/nfs_share/xft/chatglm2-xft
-        set_args:
-            STEPS: 20
-            USE_DEEPSPEED: True
-            RANK_USE: all
-            ONEDNN_VERBOSE: 0
-            PRECISION:
-                - bf16_fp16
-            INPUT_TOKENS:
-                - 1024
-            OUTPUT_TOKENS:
-                - 32
-                - 128
+    # xFTBench:
+    #     test_cases:
+    #         - pkm
+    #         - accuracy
+    #     special_args:
+    #         MODEL_NAME:
+    #             - baichuan2-13b: /mnt/nfs_share/xft/baichuan2-xft
+    #             - llama-2-7b: /mnt/nfs_share/xft/llama2-xft
+    #             - llama-2-13b: /mnt/nfs_share/xft/llama2-xft
+    #             - chatglm2-6b: /mnt/nfs_share/xft/chatglm2-xft
+    #     set_args:
+    #         STEPS: 20
+    #         USE_DEEPSPEED: True
+    #         RANK_USE: all
+    #         ONEDNN_VERBOSE: 0
+    #         PRECISION:
+    #             - bf16_fp16
+    #         INPUT_TOKENS:
+    #             - 1024
+    #         OUTPUT_TOKENS:
+    #             - 32
+    #             - 128
     # GPTJ-PyTorch-Dev:
     #     test_cases:
     #         - pkm

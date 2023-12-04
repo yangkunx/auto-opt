@@ -38,7 +38,7 @@ drwxrwxr-x  2 yangkun yangkun 4096 Aug  7 05:49 autorun
 ```
 cd autorun
 
-Python3 run_case.py --h "172.17.29.24" --n "ww32.1"
+Python3 run_case_class.py --h "172.17.29.24" --n "ww32.1"
 ```
 
 #### Run on EMR
