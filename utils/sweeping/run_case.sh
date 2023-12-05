@@ -1,7 +1,11 @@
 #!/bin/bash
-#Writon by Kun
+#########################################################
+# Function :sweeping base on run_test.sh                #
+# Platform :All Linux Based Platform                    #
+# Date     :2023/12/5v                                  #
+#########################################################
 
-# VARs
+# Set variables
 HARDWARE_PLATFORM="spr"
 PRECISIONS="bfloat16"
 BATCH_SIZES="1"
@@ -10,6 +14,7 @@ CORES="56"
 FREQUENCYS="3.8"
 DRY_RUN=false
 
+# Print help
 function usage() {
     cat << EOM
     Usage: $(basename "$0") [OPTION]...
@@ -25,6 +30,7 @@ EOM
     exit 0
 }
 
+# Parse pass args and assignment
 function process_args() {
     while getopts "c:h:l:p:b:p:f:s:d" opt; do
         case $opt in
@@ -41,6 +47,7 @@ function process_args() {
     done
 }
 
+# Print variables
 function _print_args(){
     echo "$1"
     echo "HARDWARE_PLATFORM: ${HARDWARE_PLATFORM}"
@@ -54,17 +61,20 @@ function _print_args(){
     echo "$2"
 }
 
+# frequency and loop sweeping base on run_test.sh
 function run_with_n_cores(){
     process_args "$@"
     # _print_args "run_with_n_cores开始" "run_with_n_cores结束" 
     startTime_s=`date +%s`
-
+    
+    # loop frequency
     for FRE in ${FREQUENCYS}
     do
+        # loop time
         for i in $(seq 1 ${LOOP})
         do   
             FREQUENCY=${FRE}"Ghz"
-            echo $DRY_RUN
+            # Echo the run command when "$DRY_RUN" = true
             if [ "$DRY_RUN" = true ]; then
                 echo "test"
                 echo "Current $i-${CORE}-${PRECISION}-${FREQUENCY}-${BATCH_SIZE}"
@@ -92,13 +102,15 @@ function run_with_n_cores(){
     echo "Total:${sumTime} seconds"
 }
 
-
+#Base on different platform
 function run_with_platform(){
     process_args "$@"
     # _print_args "run_with_platform开始" "run_with_platform结束" 
     base_dir="report"
+    # Loop precision
     for PRECISION in ${PRECISIONS}
     do
+        # Loop batch_size
         for BATCH_SIZE in ${BATCH_SIZES}
         do
             if [[ ${HARDWARE_PLATFORM} == "emr" ]]; then
@@ -128,5 +140,6 @@ function run_with_platform(){
 process_args "$@"
 _print_args "脚本传入参数打印开始。。。。。。。" "脚本传入参数打印结束！！！！！！" 
 
+#convert HARDWARE_PLATFORM to lower
 HARDWARE_PLATFORM=$(echo $HARDWARE_PLATFORM | tr '[:upper:]' '[:lower:]')
 run_with_platform -h ${HARDWARE_PLATFORM} -p "${PRECISIONS}" -c "${CORES}" -l ${LOOP} -f "${FREQUENCYS}" -b "${BATCH_SIZES}"
