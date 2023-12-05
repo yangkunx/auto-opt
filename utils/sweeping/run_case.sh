@@ -70,13 +70,12 @@ function run_with_n_cores(){
     for FRE in ${FREQUENCYS}
     do
         # loop time
-        for i in $(seq 1 ${LOOP})
+        for l in $(seq 1 ${LOOP})
         do   
             FREQUENCY=${FRE}"Ghz"
             # Echo the run command when "$DRY_RUN" = true
             if [ "$DRY_RUN" = true ]; then
-                echo "test"
-                echo "Current $i-${CORE}-${PRECISION}-${FREQUENCY}-${BATCH_SIZE}"
+                echo "Current $l-${CORE}-${PRECISION}-${FREQUENCY}-${BATCH_SIZE}"
                 echo "Running cmd: ./ctest.sh -R pkm --set "${SET_ARGS}" -V  --loop=1 --reuse-sut"
             else
                 echo "Setting frequency-${FREQUENCY}"
@@ -85,7 +84,7 @@ function run_with_n_cores(){
 
                 ./ctest.sh -R pkm --set "${SET_ARGS}" -V  --loop=1 --reuse-sut
                 
-                echo "Current $i-${CORE}-${PRECISION}-${FREQUENCY}-${BATCH_SIZE}"
+                echo "Current $l-${CORE}-${PRECISION}-${FREQUENCY}-${BATCH_SIZE}"
                 current_policy="$( sudo cpupower frequency-info | grep 'current policy' | awk -F ":" '{print $2}' )"
                 echo "Current frequency policy: ${current_policy}"
                 echo sleep 1m
