@@ -64,7 +64,6 @@ function _print_args(){
 # frequency and loop sweeping base on run_test.sh
 function run_with_n_cores(){
     process_args "$@"
-    # _print_args "run_with_n_cores开始" "run_with_n_cores结束" 
     startTime_s=`date +%s`
     
     # loop frequency
