@@ -3,6 +3,7 @@ import argparse
 import socket
 import re
 import shutil
+import time
 
 
 def parse_log(log_path):
@@ -146,34 +147,34 @@ def format_args(**kwargs):
         base_args += arg_keys + "/"
         loop_sum = loop_sum * length
     base_args = base_args[0:-1]
-    return base_args
+    return base_args, loop_sum
     
-def run_workload(workload, model, loop_sum, tags, if_docker, model_path="", **kwargs):
+def run_workload(workload, model, tags, if_docker, model_path="", **kwargs):
     build_name = "build_" + model
     build_path = os.path.join(ww_repo_dir, build_name)
     create_dir_or_file(build_path)
-    model_build_dir = chdir(build_path)
+    chdir(build_path)
     #cmake 
     cmake_cmd = "cmake -DPLATFORM=SPR -DRELEASE=latest -DACCEPT_LICENSE=ALL -DBACKEND=terraform -DBENCHMARK= \
                 -DTERRAFORM_SUT=static -DTERRAFORM_OPTIONS='{} --svrinfo --intel_publish --tags={} \
                 --owner=sf-post-silicon' -DTIMEOUT=60000,3600 ..".format(if_docker,tags)
     print('\033[32mcmake命令:\033[0m {}'.format(cmake_cmd))
     os.system(cmake_cmd)
-    wl_dir = chdir(os.path.join(build_path, "workload", workload))
-    # os.system("make")
+    chdir(os.path.join(build_path, "workload", workload))
+    os.system("make")
     #准备sut
     run_args = './ctest.sh -R {0} --prepare-sut -V'.format("pkm")
     print('\033[32msut_args:\033[0m {0}'.format(run_args))
-    # os.system(run_args)
+    os.system(run_args)
     #运行sut 
-    base_args= format_args(**kwargs)
-    sut_args = ' --loop={0} --reuse-sut -V'.format(loop_sum)
+    base_args, loop_sum= format_args(**kwargs)
+    sut_args = ' --loop={0} --reuse-sut -V --continue'.format(loop_sum)
     model_path_args = ""
     if local_ip == "10.165.174.148" or local_ip == "172.17.29.24":
         model_path_args = ' --set "MODEL_PATH={0}"'.format(model_path)
     run_args = './ctest.sh -R {0} --set "{1}" --set "MODEL_NAME={2}"{3}{4} '.format("pkm", base_args, model, model_path_args, sut_args)
     print('\033[32mTest_case_args:\033[0m {0}'.format(run_args))
-    # os.system(run_args)
+    os.system(run_args)
 
 
 parser = argparse.ArgumentParser()
@@ -230,29 +231,30 @@ else:
     print("Not support this IP")
     exit(1)
 
-#args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16_fp16'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1]}
-#args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1]}
-args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16_fp16'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4]}
-args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4,8,16,32]}
+args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16_fp16'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1]}
+args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1]}
+# args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16_fp16'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4]}
+# args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4,8,16,32]}
 workload_name = 'xFTBench' 
 
 # run model
-
+start_time = time.time()
 if local_ip == "10.165.174.148" or local_ip == "172.17.29.24":
     for all_models in models:
         for model, model_path in all_models.items():
             print(model)
-            run_workload(workload_name, model, 40, tags, if_docker, model_path, **args_info_case01)
-            run_workload(workload_name, model, 100, tags, if_docker, model_path, **args_info_case02)             
+            run_workload(workload_name, model, tags, if_docker, model_path, **args_info_case01)
+            run_workload(workload_name, model, tags, if_docker, model_path, **args_info_case02)             
 else:
     for model in models:
-        run_workload(workload_name, model, 40, tags, if_docker, **args_info_case01)
-        run_workload(workload_name, model, 100, tags, if_docker, **args_info_case02)
+        run_workload(workload_name, model, tags, if_docker, **args_info_case01)
+        run_workload(workload_name, model, tags, if_docker, **args_info_case02)
 
 # run this cmd to create output.log: python3 m_trigger_xft_test.py --platform spr --root_dir /home/jason/test --ww 44 2>&1 | tee output.log
 # parse output.log
+end_time = time.time()
+print("耗时: {:.2f}秒".format(end_time - start_time))
 output_file = os.path.join(os.path.realpath(os.path.dirname(__file__)), "output.log")
 if os.path.exists(output_file):
     print('{0}\033[32m parse log result \033[0m{1}'.format("-"*50,"-"*50))
     parse_log(output_file)
-
