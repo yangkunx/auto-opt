@@ -2,7 +2,6 @@ import os
 import argparse
 import socket
 import re
-import shutil
 import time
 
 
@@ -58,7 +57,7 @@ def parse_log(log_path):
                     link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, float(latency))
                     single_loop_list.insert(0, link)
                 except UnboundLocalError:
-                    print("cannot access local variable '{} or {} or ' where it is not associated with a value".format("dashboard_link", "latency", "link"))
+                    print("cannot access local variable '{} or {} or ' where it is not associated with a value".format("dashboard_link", "latency"))
                 single_file_list.append(single_loop_list)
                 print('model_name: {0}'.format(model_name))
                 print('precision: {0}'.format(precision))
@@ -104,21 +103,28 @@ def create_dir_or_file(path):
         if not os.path.exists(path):
             os.makedirs(path)
 
-def replacetext(replace_text):
+def replacetext(ip,user):
     """
     replace the text
     """
     with open(terraform_config_file,'r+') as f: 
-        file = f.read() 
+        file = f.read()
+        search_text=r'# "user_name": "<user>"'
+        replace_text=r'"user_name": "{}"'.format(user)
+        file = re.sub(search_text, replace_text, file)
         search_text=r'"public_ip": "127.0.0.1"'
-        replace_text=r'"public_ip": "{}"'.format(replace_text)
-        file = re.sub(search_text, replace_text, file) 
+        replace_text=r'"public_ip": "{}"'.format(ip)
+        file = re.sub(search_text, replace_text, file)
+        search_text=r'"private_ip": "127.0.0.1"'
+        replace_text=r'"private_ip": "{}"'.format(ip)
+        file = re.sub(search_text, replace_text, file)
+        file = re.sub('variable "client_profile" {\n.*\n.*vm_count = 1', 'variable "client_profile" {\n  default = {\n    vm_count = 0', file)
         f.seek(0)
         f.write(file)
         f.truncate()
     return "Text replaced"
 
-def get_local_ip():
+def get_local_ip_user():
     """
     get local ip 
     """
@@ -127,7 +133,8 @@ def get_local_ip():
         s.connect(('8.8.8.8', 80))
         ip = s.getsockname()[0]
         s.close()
-        return ip
+        user=os.getlogin()
+        return ip, user
     except socket.error:
         return None
 
@@ -149,15 +156,15 @@ def format_args(**kwargs):
     base_args = base_args[0:-1]
     return base_args, loop_sum
     
-def run_workload(workload, model, tags, if_docker, model_path="", **kwargs):
+def run_workload(workload, model, tags, local_ip, if_docker, model_path="", **kwargs):
     build_name = "build_" + model
     build_path = os.path.join(ww_repo_dir, build_name)
     create_dir_or_file(build_path)
     chdir(build_path)
     #cmake 
-    cmake_cmd = "cmake -DPLATFORM=SPR -DRELEASE=latest -DACCEPT_LICENSE=ALL -DBACKEND=terraform -DBENCHMARK= \
+    cmake_cmd = "cmake -DREGISTRY={}:20666 -DPLATFORM=SPR -DRELEASE=latest -DACCEPT_LICENSE=ALL -DBACKEND=terraform -DBENCHMARK= \
                 -DTERRAFORM_SUT=static -DTERRAFORM_OPTIONS='{} --svrinfo --intel_publish --tags={} \
-                --owner=sf-post-silicon' -DTIMEOUT=60000,3600 ..".format(if_docker,tags)
+                --owner=sf-post-silicon' -DTIMEOUT=60000,3600 ..".format(local_ip, if_docker,tags)
     print('\033[32mcmake命令:\033[0m {}'.format(cmake_cmd))
     os.system(cmake_cmd)
     chdir(os.path.join(build_path, "workload", workload))
@@ -179,8 +186,8 @@ def run_workload(workload, model, tags, if_docker, model_path="", **kwargs):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--ww", type=str, required=True, help="work week")
-parser.add_argument("--root_dir", type=str, required=True, default="/home/wsf")
-parser.add_argument("--platform", type=str, required=True, default="spr")
+parser.add_argument("--root_dir", type=str, default="/home/wsf")
+parser.add_argument("--platform", type=str, default="spr")
 
 args = parser.parse_args()
 
@@ -188,19 +195,20 @@ create_dir_or_file(args.root_dir)
 chdir(args.root_dir)
 
 # git clone code
-wsf_repo="https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features"
+wsf_repo = "https://github.com/JunxiChhen/applications.benchmarking.benchmark.platform-hero-features"
+branch = "xft_ww50_update"
 target_repo_name = "wsf-dev-" + args.ww
 wsf_dir = os.path.join(args.root_dir, target_repo_name)
 if not os.path.exists(wsf_dir):
-    os.system("git clone -b develop " + wsf_repo + " " + target_repo_name)
+    os.system("git clone -b {} {} {}".format(branch, wsf_repo, target_repo_name))
 ww_repo_dir = chdir(wsf_dir)
 
 #get local ip
-local_ip = get_local_ip()
+local_ip, local_user= get_local_ip_user()
 
 # modify terraform config
 terraform_config_file = os.path.join(wsf_dir, "script/terraform/terraform-config.static.tf")
-replacetext(local_ip)
+replacetext(local_ip, local_user)
 
 if_docker = ""
 tags = ""
@@ -231,10 +239,10 @@ else:
     print("Not support this IP")
     exit(1)
 
-args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16_fp16'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1]}
-args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1]}
-# args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16_fp16'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4]}
-# args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4,8,16,32]}
+# args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16_fp16'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1,2]}
+# args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1,2]}
+args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16_fp16'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4]}
+args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4,8,16,32]}
 workload_name = 'xFTBench' 
 
 # run model
@@ -243,14 +251,15 @@ if local_ip == "10.165.174.148" or local_ip == "172.17.29.24":
     for all_models in models:
         for model, model_path in all_models.items():
             print(model)
-            run_workload(workload_name, model, tags, if_docker, model_path, **args_info_case01)
-            run_workload(workload_name, model, tags, if_docker, model_path, **args_info_case02)             
+            run_workload(workload_name, model, tags, local_ip, if_docker, model_path, **args_info_case01)
+            run_workload(workload_name, model, tags, local_ip, if_docker, model_path, **args_info_case02)             
 else:
     for model in models:
-        run_workload(workload_name, model, tags, if_docker, **args_info_case01)
-        run_workload(workload_name, model, tags, if_docker, **args_info_case02)
+        run_workload(workload_name, model, tags, local_ip, if_docker, **args_info_case01)
+        run_workload(workload_name, model, tags, local_ip, if_docker, **args_info_case02)
 
-# run this cmd to create output.log: python3 m_trigger_xft_test.py --platform spr --root_dir /home/jason/test --ww 44 2>&1 | tee output.log
+# run this cmd to create output.log: python3 m_trigger_xft_test.py --platform spr --root_dir /home/jason/test --ww ww44 2>&1 | tee output.log
+# python3 xft.py  --ww ww44 2>&1 | tee output.log
 # parse output.log
 end_time = time.time()
 print("耗时: {:.2f}秒".format(end_time - start_time))
