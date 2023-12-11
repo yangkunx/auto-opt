@@ -2,7 +2,11 @@
 /utils/*.xlsx
 /.vscode
 */*.xlsx
-/log
-/utils/log
-/output.xlsx
-/re.pickle
+*/*/log
+*/*/*.pickle
+/utils/wl_autorun/abbp
+*/*/wsf-dev-*
+*/*/ww*
+*/*/*.log
+*/*/*.ipynb
+*.ipynb

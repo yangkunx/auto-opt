@@ -13,7 +13,7 @@ import shlex
 from subprocess import PIPE, Popen
 import logging
 
-base_path = "/home/yangkun/lab/yangkunx"
+base_path = "/home/yangkun/lab/auto-opt/utils/wl_autorun"
 yaml_name = "wl.yaml"
 repo_dir_name = 'ww38'
 branch_name = "ww38"
@@ -255,6 +255,8 @@ def scenes(tag_recipe_type, workload_name, args, use_deepspeed=False):
             os.system('./ctest.sh -R pkm --set "{0}"  -V'.format(base_args))
         else:
             for test_case in args['test_cases']:
+                print(args['set_args'])
+                exit(1)
                 recipe_type_args = copy.deepcopy(args['set_args'])
                 if use_deepspeed:
                     if tag_recipe_type == "OOB":
