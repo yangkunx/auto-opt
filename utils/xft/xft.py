@@ -30,6 +30,10 @@ def parse_log(log_path):
                 single_loop_list = []
                 batch_size=re.findall('\d\:\sBATCH_SIZE=.*', line)[0].split("=")[1]
             # Get latency
+            latency=0
+            first_token=0
+            next_token=0
+            dashboard_link=""
             if re.search("Inference Latency:", line):
                 latency=re.findall('\d+\.\d+', line)[0]
             # Get 1st_token
@@ -57,7 +61,7 @@ def parse_log(log_path):
                     link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, float(latency))
                     single_loop_list.insert(0, link)
                 except UnboundLocalError:
-                    print("cannot access local variable '{} or {} or ' where it is not associated with a value".format("dashboard_link", "latency"))
+                    print("cannot access local variable '{}' where it is not associated with a value".format(link))
                 single_file_list.append(single_loop_list)
                 print('model_name: {0}'.format(model_name))
                 print('precision: {0}'.format(precision))
@@ -157,7 +161,7 @@ def format_args(**kwargs):
     return base_args, loop_sum
     
 def run_workload(workload, model, tags, local_ip, if_docker, model_path="", **kwargs):
-    build_name = "build_" + model
+    build_name = "build_gpt-j-6b"
     build_path = os.path.join(ww_repo_dir, build_name)
     create_dir_or_file(build_path)
     chdir(build_path)
@@ -168,20 +172,20 @@ def run_workload(workload, model, tags, local_ip, if_docker, model_path="", **kw
     print('\033[32mcmake命令:\033[0m {}'.format(cmake_cmd))
     os.system(cmake_cmd)
     chdir(os.path.join(build_path, "workload", workload))
-    os.system("make")
+    # os.system("make")
     #准备sut
     run_args = './ctest.sh -R {0} --prepare-sut -V'.format("pkm")
     print('\033[32msut_args:\033[0m {0}'.format(run_args))
-    os.system(run_args)
+    # os.system(run_args)
     #运行sut 
     base_args, loop_sum= format_args(**kwargs)
     sut_args = ' --loop={0} --reuse-sut -V --continue'.format(loop_sum)
     model_path_args = ""
-    if local_ip == "10.165.174.148" or local_ip == "172.17.29.24":
+    if local_ip == "172.17.29.24":
         model_path_args = ' --set "MODEL_PATH={0}"'.format(model_path)
     run_args = './ctest.sh -R {0} --set "{1}" --set "MODEL_NAME={2}"{3}{4} '.format("pkm", base_args, model, model_path_args, sut_args)
     print('\033[32mTest_case_args:\033[0m {0}'.format(run_args))
-    os.system(run_args)
+    # os.system(run_args)
 
 
 parser = argparse.ArgumentParser()
@@ -195,8 +199,9 @@ create_dir_or_file(args.root_dir)
 chdir(args.root_dir)
 
 # git clone code
-wsf_repo = "https://github.com/JunxiChhen/applications.benchmarking.benchmark.platform-hero-features"
-branch = "xft_ww50_update"
+wsf_repo = "https://github.com/yangkunx/applications.benchmarking.benchmark.platform-hero-features"
+#wsf_repo = "https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features"
+branch = "23.43.4rc1-llm-dev"
 target_repo_name = "wsf-dev-" + args.ww
 wsf_dir = os.path.join(args.root_dir, target_repo_name)
 if not os.path.exists(wsf_dir):
@@ -230,7 +235,7 @@ elif local_ip == "192.168.14.119":
 elif local_ip == "10.165.174.148":
     if_docker = "--docker"
     tags = "{}_SPR_QUAD".format(args.ww.upper())
-    models = [{'chatglm-6b': '/opt/dataset/chatglm-xft'}, {'baichuan-7b': '/opt/dataset/baichuan-xft'}]
+    models = ['EleutherAI/gpt-j-6b']
 elif local_ip == "10.45.247.77":
     if_docker = "--docker"
     tags = "{}_SPR_QUAD_susan_2712".format(args.ww.upper())
@@ -239,24 +244,23 @@ else:
     print("Not support this IP")
     exit(1)
 
-# args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16_fp16'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1,2]}
+args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 20, 'PRECISION': ['bfloat16', 'woq_int8', 'static_int8'],'USE_DEEPSPEED':['True', 'False'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1]}
 # args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1,2]}
-args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16_fp16'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4]}
-args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4,8,16,32]}
-workload_name = 'xFTBench' 
+# args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16_fp16'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4]}
+# args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4,8,16,32]}
+workload_name = 'GPTJ-PyTorch-Dev' 
 
 # run model
 start_time = time.time()
-if local_ip == "10.165.174.148" or local_ip == "172.17.29.24":
+if local_ip == "172.17.29.24":
     for all_models in models:
         for model, model_path in all_models.items():
-            print(model)
             run_workload(workload_name, model, tags, local_ip, if_docker, model_path, **args_info_case01)
-            run_workload(workload_name, model, tags, local_ip, if_docker, model_path, **args_info_case02)             
+            # run_workload(workload_name, model, tags, local_ip, if_docker, model_path, **args_info_case02)             
 else:
     for model in models:
         run_workload(workload_name, model, tags, local_ip, if_docker, **args_info_case01)
-        run_workload(workload_name, model, tags, local_ip, if_docker, **args_info_case02)
+        # run_workload(workload_name, model, tags, local_ip, if_docker, **args_info_case02)
 
 # run this cmd to create output.log: python3 m_trigger_xft_test.py --platform spr --root_dir /home/jason/test --ww ww44 2>&1 | tee output.log
 # python3 xft.py  --ww ww44 2>&1 | tee output.log
