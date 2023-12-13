@@ -3,7 +3,7 @@ import argparse
 import socket
 import re
 import time
-
+import yaml
 
 def parse_log(log_path):
     """
@@ -162,49 +162,51 @@ def format_args(**kwargs):
     
 def run_workload(workload, model, tags, local_ip, if_docker, model_path="", **kwargs):
     build_name = "build_" + model
+    if "/" in model:
+        build_name = "build_" + model.replace("/","_")
     build_path = os.path.join(ww_repo_dir, build_name)
     create_dir_or_file(build_path)
     chdir(build_path)
-    #cmake
+    #cmake 
     cmake_cmd = "cmake -DREGISTRY={}:20666 -DPLATFORM=SPR -DRELEASE=latest -DACCEPT_LICENSE=ALL -DBACKEND=terraform -DBENCHMARK= \
                 -DTERRAFORM_SUT=static -DTERRAFORM_OPTIONS='{} --svrinfo --intel_publish --tags={} \
                 --owner=sf-post-silicon' -DTIMEOUT=60000,3600 ..".format(local_ip, if_docker,tags)
     print('\033[32mcmake命令:\033[0m {}'.format(cmake_cmd))
     os.system(cmake_cmd)
     chdir(os.path.join(build_path, "workload", workload))
-    os.system("make")
+    # os.system("make")
     #准备sut
     run_args = './ctest.sh -R {0} --prepare-sut -V'.format("pkm")
     print('\033[32msut_args:\033[0m {0}'.format(run_args))
-    os.system(run_args)
-    #运行sut
+    # os.system(run_args)
+    #运行sut 
     base_args, loop_sum= format_args(**kwargs)
     sut_args = ' --loop={0} --reuse-sut -V --continue'.format(loop_sum)
-    model_path_args = ""
-    if local_ip == "10.165.174.148" or local_ip == "172.17.29.24":
-        model_path_args = ' --set "MODEL_PATH={0}"'.format(model_path)
+    model_path_args = ' --set "MODEL_PATH={0}"'.format(model_path)
     run_args = './ctest.sh -R {0} --set "{1}" --set "MODEL_NAME={2}"{3}{4} '.format("pkm", base_args, model, model_path_args, sut_args)
     print('\033[32mTest_case_args:\033[0m {0}'.format(run_args))
-    os.system(run_args)
-
+    # os.system(run_args)
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--ww", type=str, required=True, help="work week")
 parser.add_argument("--root_dir", type=str, default="/home/wsf")
 parser.add_argument("--platform", type=str, default="spr")
+parser.add_argument("--yaml_dir", type=str, default="./wl.yaml")
 
 args = parser.parse_args()
+
+data = yaml.load(open(args.yaml_dir, 'r'),Loader=yaml.FullLoader)
 
 create_dir_or_file(args.root_dir)
 chdir(args.root_dir)
 
 # git clone code
-wsf_repo = "https://github.com/JunxiChhen/applications.benchmarking.benchmark.platform-hero-features"
-#wsf_repo = "https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features"
-branch = "xft_ww50_update"
-target_repo_name = "wsf-dev-" + args.ww
+wsf_repo = data['system']['git']['repo']
+branch = data['system']['git']['branch']
+target_repo_name = "wsf-dev-{}".format(args.ww)
 wsf_dir = os.path.join(args.root_dir, target_repo_name)
+print(wsf_dir)
 if not os.path.exists(wsf_dir):
     os.system("git clone -b {} {} {}".format(branch, wsf_repo, wsf_dir))
 ww_repo_dir = chdir(wsf_dir)
@@ -216,55 +218,29 @@ local_ip, local_user= get_local_ip_user()
 terraform_config_file = os.path.join(wsf_dir, "script/terraform/terraform-config.static.tf")
 replacetext(local_ip, local_user)
 
-if_docker = ""
-tags = ""
-# 10.165.174.148 172.17.29.24
-if local_ip == "172.17.29.24":
-    if_docker = "--docker"
-    tags = "{}_SPR_QUAD".format(args.ww.upper())
-    models = [{'llama-2-13b': '/mnt/nfs_share/xft/llama2-xft'}, {'baichuan2-13b': '/mnt/nfs_share/xft/baichuan2-xft'}]
-elif local_ip == "192.168.14.91":
-    if_docker = "--docker"
-    tags = "{}_SPR_QUAD".format(args.ww.upper())
-    models = ["llama-2-7b","chatglm2-6b","baichuan2-7b","chatglm-6b"]
-elif local_ip == "192.168.14.121":
-    tags = "{}_HBM_FLAT_SNC4".format(args.ww.upper())
-    models = ["llama-2-7b","baichuan2-7b","baichuan2-13b"]
-elif local_ip == "192.168.14.119":
-    tags = "{}_HBM_FLAT_SNC4".format(args.ww.upper())
-    models = ["chatglm2-6b","chatglm-6b","llama-2-13b"]
-elif local_ip == "10.165.174.148":
-    if_docker = "--docker"
-    tags = "{}_SPR_QUAD".format(args.ww.upper())
-    models = [{'chatglm-6b': '/opt/dataset/chatglm-xft'}, {'baichuan-7b': '/opt/dataset/baichuan-xft'}]
-elif local_ip == "10.45.247.77":
-    if_docker = "--docker"
-    tags = "{}_SPR_QUAD_susan_2712".format(args.ww.upper())
-    models = ['chatglm2-6b']
-else:
-    print("Not support this IP")
+tags = "{}_{}".format(args.ww.upper(), data['system']['tags'])
+if data['system']['cmake']['docker'] is True and data['system']['cmake']['k8s'] is True:
+    print("The docker and k8s can not setting to True the same time in cmake node")
     exit(1)
-
-# args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 20, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1]}
-# args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1,2]}
-args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048]}
-# args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4,8,16,32]}
-workload_name = 'xFTBench'
-
+elif data['system']['cmake']['docker']:
+    if_docker_or_k8s = "--docker"
+elif data['system']['cmake']['k8s']:  
+    if_docker_or_k8s = "--kubernetes"
+else:
+    if_docker_or_k8s = ""
 # run model
 start_time = time.time()
-if local_ip == "172.17.29.24":
-    for all_models in models:
+for wl, wl_value in data['WorkLoad'].items():
+    args_info_case01= wl_value['common_args']
+    print(args_info_case01)
+    # if local_ip == "172.17.29.24":
+    for all_models in wl_value['special_args']['MODEL_NAME']:
+        print(all_models)
         for model, model_path in all_models.items():
-            run_workload(workload_name, model, tags, local_ip, if_docker, model_path, **args_info_case01)
-            # run_workload(workload_name, model, tags, local_ip, if_docker, model_path, **args_info_case02)             
-else:
-    for model in models:
-        run_workload(workload_name, model, tags, local_ip, if_docker, **args_info_case01)
-        # run_workload(workload_name, model, tags, local_ip, if_docker, **args_info_case02)
+            run_workload(wl, model, tags, local_ip, if_docker_or_k8s, model_path, **args_info_case01) 
 
 # run this cmd to create output.log: python3 m_trigger_xft_test.py --platform spr --root_dir /home/jason/test --ww ww44 2>&1 | tee output.log
-# python3 xft.py  --ww ww44 2>&1 | tee output.log
+# python3 xft_by_yaml.py  --ww ww44 2>&1 | tee output.log
 # parse output.log
 end_time = time.time()
 print("耗时: {:.2f}秒".format(end_time - start_time))

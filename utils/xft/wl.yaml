@@ -1,0 +1,31 @@
+system:
+    tags: SPR_QUAD
+    git:
+      repo: https://github.com/yangkunx/applications.benchmarking.benchmark.platform-hero-features
+      branch: 23.43.4rc1-llm-dev
+    cmake:
+      docker: False
+      k8s: True
+WorkLoad:
+    LLMs-IPEXBench-Dev:
+
+        test_cases:
+            - pkm
+        special_args:
+            MODEL_NAME:
+                - baichuan-inc/Baichuan2-13B-Chat: /opt/dataset/baichuan2
+                - meta-llama/Llama-2-7b-chat-hf: /opt/dataset/llama2
+        common_args:
+            STEPS: 
+                - 20
+            USE_DEEPSPEED: 
+                - True
+                - False
+            ONEDNN_VERBOSE: 0
+            PRECISION:
+                - bfloat16
+            INPUT_TOKENS:
+                - 32
+            OUTPUT_TOKENS:
+                - 32
+    
