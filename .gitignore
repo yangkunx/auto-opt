@@ -1,7 +1,7 @@
 /utils/report
 /utils/*.xlsx
 /.vscode
-*/*.xlsx
+*/*/*.xlsx
 */*/log
 */*/*.pickle
 /utils/wl_autorun/abbp
