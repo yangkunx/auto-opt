@@ -3,6 +3,7 @@ import argparse
 import socket
 import re
 import time
+import pandas as pd
 
 
 def parse_log(log_path):
@@ -14,67 +15,113 @@ def parse_log(log_path):
     with open(log_path, 'r') as ds_log:
         lines = ds_log.readlines()
         for line in lines:
-            if re.search("\d\:\sMODEL_NAME=", line):
-                single_loop_list = []
-                model_name=re.findall('\d\:\sMODEL_NAME=.*', line)[0].split("=")[1]
+            if re.search("\d\:\sMODE=", line):
+                single_case_list = []
+                latency=0
+                first_token_average_latency=0
+                second_token_average_latency=0
+                max_latency=0
+                min_latency=0
+                p90_latency=0
+                dashboard_link=""
             if re.search("\d\:\sPRECISION=", line):
-                single_loop_list = []
+                print(re.findall('\d\:\sPRECISION=.*', line)[0].split("=")[1])
                 precision=re.findall('\d\:\sPRECISION=.*', line)[0].split("=")[1]
+            if re.search("\d\:\sMODEL_NAME=", line):
+                model_name=re.findall('\d\:\sMODEL_NAME=.*', line)[0].split("=")[1]
             if re.search("\d\:\sINPUT_TOKENS=", line):
-                single_loop_list = []
-                input_tokens=re.findall('\d\:\sINPUT_TOKENS=.*', line)[0].split("=")[1]
+                input_tokens=float(re.findall('\d\:\sINPUT_TOKENS=.*', line)[0].split("=")[1])
+
             if re.search("\d\:\sOUTPUT_TOKENS=", line):
-                single_loop_list = []
-                output_tokens=re.findall('\d\:\sOUTPUT_TOKENS=.*', line)[0].split("=")[1]
+                output_tokens=float(re.findall('\d\:\sOUTPUT_TOKENS=.*', line)[0].split("=")[1])
+                
             if re.search("\d\:\sBATCH_SIZE=", line):
-                single_loop_list = []
-                batch_size=re.findall('\d\:\sBATCH_SIZE=.*', line)[0].split("=")[1]
+                batch_size=float(re.findall('\d\:\sBATCH_SIZE=.*', line)[0].split("=")[1])
+                
             # Get latency
-            latency=0
-            first_token=0
-            next_token=0
-            dashboard_link=""
             if re.search("Inference Latency:", line):
-                latency=re.findall('\d+\.\d+', line)[0]
-            # Get 1st_token
+                latency=round(float(re.findall('\d+\.\d+', line)[0]) / 1000, 5)
+            # Get first_token_average_latency
             if re.search("First token Avg Latency:", line):
-                first_token=re.findall('\d+\.\d+', line)[0]
-                try:
-                    single_loop_list.append(float(first_token))
-                except UnboundLocalError:
-                    print("cannot access local variable '{}' where it is not associated with a value".format("first_token"))
-            # Get 2nd_token
+                first_token_average_latency=round(float(re.findall('\d+\.\d+', line)[0]) / 1000, 5)
+            # Get max_latency
             if re.search("Next token Max Latency:", line):
-                next_token=re.findall('\d+\.\d+', line)[0]
-                try:
-                    single_loop_list.append(float(next_token))
-                except UnboundLocalError:
-                    print("cannot access local variable '{}' where it is not associated with a value".format("next_token"))
+                max_latency=round(float(re.findall('\d+\.\d+', line)[0]) / 1000, 5)
+            # Get min_latency
+            if re.search("Next token Min Latency:", line):
+                min_latency=round(float(re.findall('\d+\.\d+', line)[0]) / 1000, 5)   
+            # Get second_token_average_latency
+            if re.search("Next token Avg Latency:", line):
+                second_token_average_latency=round(float(re.findall('\d+\.\d+', line)[0]) / 1000, 5)
+            # Get p90_latency
+            if re.search("Next token P90 Latency:", line):
+                p90_latency=round(float(re.findall('\d+\.\d+', line)[0]) / 1000, 5)
             # Get dashboard link
             if re.search("WSF Portal URL:", line):
                 dashboard_link = re.findall('https://.*', line)[0]
                 dashboard_id = dashboard_link.split("/")[-1]
                 zip_link = 'https://d15e4ftowigvkb.cloudfront.net/{}-gptj_pytorch_public.zip'.format(dashboard_id)
-                single_loop_list.append(zip_link)
-                # Get frequency
-                try:
-                    link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, float(latency))
-                    single_loop_list.insert(0, link)
-                except UnboundLocalError:
-                    print("cannot access local variable '{}' where it is not associated with a value".format(link))
-                single_file_list.append(single_loop_list)
+                # Get link
+                link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, float(latency))
+                
+                single_case_list.append(model_name)
+                single_case_list.append(precision)
+                single_case_list.append(input_tokens)
+                single_case_list.append(output_tokens)
+                single_case_list.append(batch_size)
+                single_case_list.append(latency)
+                single_case_list.append(first_token_average_latency)
+                single_case_list.append(second_token_average_latency)
+                single_case_list.append(max_latency)
+                single_case_list.append(min_latency)
+                single_case_list.append(p90_latency)
+                single_case_list.append(dashboard_link)
+                single_case_list.append(zip_link)
+                single_file_list.append(single_case_list)
                 print('model_name: {0}'.format(model_name))
                 print('precision: {0}'.format(precision))
                 print('input_tokens: {0}'.format(input_tokens))
                 print('output_tokens: {0}'.format(output_tokens))
                 print('batch_size: {0}'.format(batch_size))
-                print('latency: {0}'.format(float(latency)))
-                print('first_token: {0}'.format(float(first_token)))
-                print('next_token: {0}'.format(float(next_token)))
+                print('latency: {0}'.format(latency))
+                print('first_token_average_latency: {0}'.format(first_token_average_latency))
+                print('second_token_average_latency: {0}'.format(second_token_average_latency))
+                print('max_latency: {0}'.format(max_latency))
+                print('min_latency: {0}'.format(min_latency))
+                print('p90_latency: {0}'.format(p90_latency))
                 print('dashboard_link: {0}'.format(dashboard_link))
                 print('zip_link: {0}'.format(zip_link))
-
+    
+    # print(single_file_list)
     return single_file_list
+
+def set_index(core):
+    """Create multi index
+
+    Args:
+        core (int): core
+
+    Returns:
+        _type_: function
+        value: multi_index
+    """
+    multi_index = pd.MultiIndex.from_tuples([(core, "2.8Ghz"), (core, "3.0Ghz"), (core, "3.2Ghz"), (core, "3.4Ghz"), (core, "3.6Ghz"),
+                                             (core, "3.8Ghz")], names=['core', 'fre'])
+    return multi_index
+
+# def set_style(df, sheet_name, column_no=0):
+#     """Setting sheet style
+
+#     Args:
+#         df (dataframe): a dataframe
+#         sheet_name (string): the name of sheet
+#         column_no (int, optional): add columns num. Defaults to 0.
+#     """
+#     workbook = writer.book
+#     worksheet = writer.sheets[sheet_name]
+    
+#     border_fmt = workbook.add_format({'bottom':1, 'top':1, 'left':1, 'right':1})
+#     worksheet.conditional_format(xlsxwriter.utility.xl_range(0, 0, len(df), len(df.columns)+column_no), {'type': 'no_errors', 'format': border_fmt})
 
 def chdir(path):
     """
@@ -200,9 +247,9 @@ create_dir_or_file(args.root_dir)
 chdir(args.root_dir)
 
 # git clone code
-wsf_repo = "https://github.com/JunxiChhen/applications.benchmarking.benchmark.platform-hero-features"
-#wsf_repo = "https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features"
-branch = "xft_ww50_update"
+#wsf_repo = "https://github.com/JunxiChhen/applications.benchmarking.benchmark.platform-hero-features"
+wsf_repo = "https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features"
+branch = "develop"
 target_repo_name = "wsf-dev-" + args.ww
 wsf_dir = os.path.join(args.root_dir, target_repo_name)
 if not os.path.exists(wsf_dir):
@@ -247,7 +294,8 @@ else:
 
 # args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 20, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1]}
 # args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1,2]}
-args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048]}
+# args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048]}
+args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_int4'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048]}
 # args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4,8,16,32]}
 workload_name = 'xFTBench'
 
@@ -256,11 +304,13 @@ start_time = time.time()
 if local_ip == "172.17.29.24":
     for all_models in models:
         for model, model_path in all_models.items():
-            run_workload(workload_name, model, tags, local_ip, if_docker, model_path, **args_info_case01)
+            pass 
+            # run_workload(workload_name, model, tags, local_ip, if_docker, model_path, **args_info_case01)
             # run_workload(workload_name, model, tags, local_ip, if_docker, model_path, **args_info_case02)             
 else:
     for model in models:
-        run_workload(workload_name, model, tags, local_ip, if_docker, **args_info_case01)
+        pass 
+        # run_workload(workload_name, model, tags, local_ip, if_docker, **args_info_case01)
         # run_workload(workload_name, model, tags, local_ip, if_docker, **args_info_case02)
 
 # run this cmd to create output.log: python3 m_trigger_xft_test.py --platform spr --root_dir /home/jason/test --ww ww44 2>&1 | tee output.log
@@ -268,7 +318,17 @@ else:
 # parse output.log
 end_time = time.time()
 print("耗时: {:.2f}秒".format(end_time - start_time))
-output_file = os.path.join(os.path.realpath(os.path.dirname(__file__)), "output.log")
+output_file = os.path.join(os.path.realpath(os.path.dirname(__file__)), "output_int4_121.log")
+basename = os.path.basename(output_file).split(".")[0]
+output_excel = os.path.join(os.path.realpath(os.path.dirname(__file__)), "{}.xlsx".format(basename))
+print(output_excel)
 if os.path.exists(output_file):
     print('{0}\033[32m parse log result \033[0m{1}'.format("-"*50,"-"*50))
-    parse_log(output_file)
+    data = parse_log(output_file)
+    sheet_list = []
+    # output_excel = '{}/{}.xlsx'.format(output_file, "output")
+    with pd.ExcelWriter(output_excel) as writer:
+        cols = ["model_name", "precision", "input_tokens","output_tokens", "batch_size", "latency","first_token_average_latency", "second_token_average_latency", "max_latency", "min_latency" , "p90_latency", "dashboard_link", "zip_link"]
+        print(len(data))
+        df = pd.DataFrame(data, columns=cols)
+        df.to_excel(writer)
