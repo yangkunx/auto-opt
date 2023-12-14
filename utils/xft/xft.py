@@ -62,7 +62,7 @@ def parse_log(log_path):
                 dashboard_id = dashboard_link.split("/")[-1]
                 zip_link = 'https://d15e4ftowigvkb.cloudfront.net/{}-gptj_pytorch_public.zip'.format(dashboard_id)
                 # Get link
-                link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, float(latency))
+                _link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, float(latency))
                 
                 single_case_list.append(model_name)
                 single_case_list.append(precision)
