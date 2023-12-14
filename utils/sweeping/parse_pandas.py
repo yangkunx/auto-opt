@@ -85,6 +85,11 @@ def parse_to_excel(platform, report_path, log_file_name):
     #Read output log file
     with open(logfile_fullpath, 'r') as ds_log:
         lines = ds_log.readlines()
+        single_loop_list = []
+        latency = 0
+        first_token = 0
+        second_token = 0
+        dashboard_link = ""
         for line in lines:
             # Get latency
             # logging.info(re.search("Inference latency:", line))
@@ -220,6 +225,7 @@ last_re = []
 for file in os.listdir(report_path):
     if os.path.isfile(os.path.join(report_path,file)):
         single = parse_to_excel( platform, report_path, file)
+        print(single)
         last_re.append(single)
         
 storeData(last_re, "re.pickle")
