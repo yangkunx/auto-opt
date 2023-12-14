@@ -25,18 +25,27 @@ def parse_log(log_path):
                 p90_latency=0
                 dashboard_link=""
             if re.search("\d\:\sPRECISION=", line):
-                print(re.findall('\d\:\sPRECISION=.*', line)[0].split("=")[1])
                 precision=re.findall('\d\:\sPRECISION=.*', line)[0].split("=")[1]
+                if precision == "bf16":
+                    precision = "bfloat16"
+                elif precision == "bf16_fp16":
+                    precision = "bfloat16_float16"
+                elif precision == "bf16_int8":
+                    precision = "bfloat16_int8"
+                elif precision == "fp16":
+                    precision = "float16"
+                elif precision == "bf16_int4":
+                    precision = "bfloat16_int4"
             if re.search("\d\:\sMODEL_NAME=", line):
                 model_name=re.findall('\d\:\sMODEL_NAME=.*', line)[0].split("=")[1]
             if re.search("\d\:\sINPUT_TOKENS=", line):
-                input_tokens=float(re.findall('\d\:\sINPUT_TOKENS=.*', line)[0].split("=")[1])
+                input_tokens=int(re.findall('\d\:\sINPUT_TOKENS=.*', line)[0].split("=")[1])
 
             if re.search("\d\:\sOUTPUT_TOKENS=", line):
-                output_tokens=float(re.findall('\d\:\sOUTPUT_TOKENS=.*', line)[0].split("=")[1])
+                output_tokens=int(re.findall('\d\:\sOUTPUT_TOKENS=.*', line)[0].split("=")[1])
                 
             if re.search("\d\:\sBATCH_SIZE=", line):
-                batch_size=float(re.findall('\d\:\sBATCH_SIZE=.*', line)[0].split("=")[1])
+                batch_size=int(re.findall('\d\:\sBATCH_SIZE=.*', line)[0].split("=")[1])
                 
             # Get latency
             if re.search("Inference Latency:", line):
@@ -62,9 +71,10 @@ def parse_log(log_path):
                 dashboard_id = dashboard_link.split("/")[-1]
                 zip_link = 'https://d15e4ftowigvkb.cloudfront.net/{}-gptj_pytorch_public.zip'.format(dashboard_id)
                 # Get link
-                _link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, float(latency))
-                
-                single_case_list.append(model_name)
+                _link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, model_name)
+                # link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, float(latency))
+
+                single_case_list.append(_link)
                 single_case_list.append(precision)
                 single_case_list.append(input_tokens)
                 single_case_list.append(output_tokens)
@@ -75,8 +85,8 @@ def parse_log(log_path):
                 single_case_list.append(max_latency)
                 single_case_list.append(min_latency)
                 single_case_list.append(p90_latency)
-                single_case_list.append(dashboard_link)
-                single_case_list.append(zip_link)
+                # single_case_list.append(dashboard_link)
+                # single_case_list.append(zip_link)
                 single_file_list.append(single_case_list)
                 print('model_name: {0}'.format(model_name))
                 print('precision: {0}'.format(precision))
@@ -328,7 +338,7 @@ if os.path.exists(output_file):
     sheet_list = []
     # output_excel = '{}/{}.xlsx'.format(output_file, "output")
     with pd.ExcelWriter(output_excel) as writer:
-        cols = ["model_name", "precision", "input_tokens","output_tokens", "batch_size", "latency","first_token_average_latency", "second_token_average_latency", "max_latency", "min_latency" , "p90_latency", "dashboard_link", "zip_link"]
+        cols = ["model_name", "precision", "input_tokens","output_tokens", "batch_size", "latency","first_token_average_latency", "second_token_average_latency", "max_latency", "min_latency" , "p90_latency"]
         print(len(data))
         df = pd.DataFrame(data, columns=cols)
         df.to_excel(writer)
