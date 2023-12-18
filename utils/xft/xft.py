@@ -217,7 +217,7 @@ def format_args(**kwargs):
     base_args = base_args[0:-1]
     return base_args, loop_sum
     
-def run_workload(workload, model, tags, local_ip, if_docker, model_path="", **kwargs):
+def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_run=False, **kwargs):
     build_name = "build_" + model
     build_path = os.path.join(ww_repo_dir, build_name)
     create_dir_or_file(build_path)
@@ -229,11 +229,13 @@ def run_workload(workload, model, tags, local_ip, if_docker, model_path="", **kw
     print('\033[32mcmake命令:\033[0m {}'.format(cmake_cmd))
     os.system(cmake_cmd)
     chdir(os.path.join(build_path, "workload", workload))
-    os.system("make")
+    if not dry_run:
+        os.system("make")
     #准备sut
     run_args = './ctest.sh -R {0} --prepare-sut -V'.format("pkm")
     print('\033[32msut_args:\033[0m {0}'.format(run_args))
-    os.system(run_args)
+    if not dry_run:
+        os.system(run_args)
     #运行sut
     base_args, loop_sum= format_args(**kwargs)
     sut_args = ' --loop={0} --reuse-sut -V --continue'.format(loop_sum)
@@ -242,7 +244,8 @@ def run_workload(workload, model, tags, local_ip, if_docker, model_path="", **kw
         model_path_args = ' --set "MODEL_PATH={0}"'.format(model_path)
     run_args = './ctest.sh -R {0} --set "{1}" --set "MODEL_NAME={2}"{3}{4} '.format("pkm", base_args, model, model_path_args, sut_args)
     print('\033[32mTest_case_args:\033[0m {0}'.format(run_args))
-    os.system(run_args)
+    if not dry_run:
+        os.system(run_args)
 
 
 
@@ -250,6 +253,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--ww", type=str, required=True, help="work week")
 parser.add_argument("--root_dir", type=str, default="/home/wsf")
 parser.add_argument("--platform", type=str, default="spr")
+parser.add_argument("--dry_run", "--d", action="store_true", help="dry run")
 
 args = parser.parse_args()
 
@@ -314,20 +318,17 @@ start_time = time.time()
 if local_ip == "172.17.29.24":
     for all_models in models:
         for model, model_path in all_models.items():
-            pass 
-            # run_workload(workload_name, model, tags, local_ip, if_docker, model_path, **args_info_case01)
+            run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)
             # run_workload(workload_name, model, tags, local_ip, if_docker, model_path, **args_info_case02)             
 else:
     for model in models:
-        pass 
-        # run_workload(workload_name, model, tags, local_ip, if_docker, **args_info_case01)
+        run_workload(workload_name, model, tags, local_ip, if_docker, dry_run=args.dry_run, **args_info_case01)
         # run_workload(workload_name, model, tags, local_ip, if_docker, **args_info_case02)
 
 # run this cmd to create output.log: python3 m_trigger_xft_test.py --platform spr --root_dir /home/jason/test --ww ww44 2>&1 | tee output.log
 # python3 xft.py  --ww ww44 2>&1 | tee output.log
 # parse output.log
 end_time = time.time()
-print("耗时: {:.2f}秒".format(end_time - start_time))
 output_file = os.path.join(os.path.realpath(os.path.dirname(__file__)), "output_int4_121.log")
 basename = os.path.basename(output_file).split(".")[0]
 output_excel = os.path.join(os.path.realpath(os.path.dirname(__file__)), "{}.xlsx".format(basename))
@@ -342,3 +343,5 @@ if os.path.exists(output_file):
         print(len(data))
         df = pd.DataFrame(data, columns=cols)
         df.to_excel(writer)
+
+print("耗时: {:.2f}秒".format(end_time - start_time))
