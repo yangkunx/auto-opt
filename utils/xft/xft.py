@@ -3,6 +3,7 @@ import argparse
 import socket
 import re
 import time
+import glob
 import pandas as pd
 
 
@@ -26,7 +27,7 @@ def parse_log(log_path):
                 throughput=0
                 dashboard_link=""
             if re.search("BASE_MODEL_NAME:", line):
-                BASE_MODEL_NAME=re.findall('BASE_MODEL_NAME:', line)[0].split(":")[1]
+                BASE_MODEL_NAME=re.findall('BASE_MODEL_NAME:.*', line)[0].split(":")[1]
             if re.search("\d\:\sPRECISION=", line):
                 precision=re.findall('\d\:\sPRECISION=.*', line)[0].split("=")[1]
                 if precision == "bf16":
@@ -112,7 +113,7 @@ def parse_log(log_path):
                 print('first_token_average_latency: {0}'.format(first_token_average_latency))
                 print('second_token_average_latency: {0}'.format(second_token_average_latency))
                 print('latency: {0}'.format(latency))
-                print('dashboard_link: {0}'.format(dashboard_link))
+                print('dashboard_link: {0}'.format(_link))
                 print('zip_link: {0}'.format(zip_link))
 
                 
@@ -365,21 +366,35 @@ else:
 # python3 xft.py  --ww 44 --dry_run 2>&1 | tee output.log
 # parse output.log
 end_time = time.time()
-output_file = os.path.join(os.path.realpath(os.path.dirname(__file__)), "output1214_121.log")
-basename = os.path.basename(output_file).split(".")[0]
-output_excel = os.path.join(os.path.realpath(os.path.dirname(__file__)), "{}.xlsx".format(basename))
-# print(output_excel)
-if os.path.exists(output_file):
-    print('{0}\033[32m parse log result \033[0m{1}'.format("-"*50,"-"*50))
-    data = parse_log(output_file)
-    sheet_list = []
-    # output_excel = '{}/{}.xlsx'.format(output_file, "output")
-    with pd.ExcelWriter(output_excel) as writer:
-        cols = ["BaseModelName","Variant", "Precision", "BatchSize", "Input_Tokens","Output_Tokens",
-                "Framework", "IsPass", "Throughput", "Min_Latency", "Max_Latency" ,"P90_Latency", 
-                "1st_Token_Latency", "2nd+_Tokens_Average_Latency", "WorkloadName","run_uri_perf", "Latency"]
-        print(len(data))
-        df = pd.DataFrame(data, columns=cols)
-        df.to_excel(writer)
+script_exec_path = os.path.realpath(os.path.dirname(__file__))
+file_list = glob.glob(script_exec_path + "/output*.log")
+summary_excel = os.path.join(script_exec_path, "{}.xlsx".format("summary"))
+each_kpi_summary = []
+if len(file_list) != 0:
+    for file in file_list:
+        output_file = os.path.join(script_exec_path, file)
+        basename = os.path.basename(output_file).split(".")[0]
+        output_excel = os.path.join(script_exec_path, "{}.xlsx".format(basename))
+        # print(output_excel)
+
+        if os.path.exists(output_file):
+            print('{0}\033[32m parse log result \033[0m{1}'.format("-"*50,"-"*50))
+            data = parse_log(output_file)
+            sheet_list = []
+            # output_excel = '{}/{}.xlsx'.format(output_file, "output")
+            with pd.ExcelWriter(output_excel) as writer:
+                cols = ["BaseModelName","Variant", "Precision", "BatchSize", "Input_Tokens","Output_Tokens",
+                        "Framework", "IsPass", "Throughput", "Min_Latency", "Max_Latency" ,"P90_Latency", 
+                        "1st_Token_Latency", "2nd+_Tokens_Average_Latency", "WorkloadName","run_uri_perf", "Latency"]
+                print(len(data))
+                df = pd.DataFrame(data, columns=cols)
+                df.to_excel(writer, index=False)
+                each_kpi_summary.append(data)
+
+    with pd.ExcelWriter(summary_excel) as writer:
+        each_kpi_summary = sum(each_kpi_summary, [])
+        print(len(each_kpi_summary))
+        df = pd.DataFrame(each_kpi_summary, columns=cols)
+        df.to_excel(writer, index=False)
 
 print("耗时: {:.2f}秒".format(end_time - start_time))
