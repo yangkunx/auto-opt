@@ -23,7 +23,10 @@ def parse_log(log_path):
                 max_latency=0
                 min_latency=0
                 p90_latency=0
+                throughput=0
                 dashboard_link=""
+            if re.search("BASE_MODEL_NAME:", line):
+                BASE_MODEL_NAME=re.findall('BASE_MODEL_NAME:', line)[0].split(":")[1]
             if re.search("\d\:\sPRECISION=", line):
                 precision=re.findall('\d\:\sPRECISION=.*', line)[0].split("=")[1]
                 if precision == "bf16":
@@ -53,6 +56,9 @@ def parse_log(log_path):
             # Get first_token_average_latency
             if re.search("First token Avg Latency:", line):
                 first_token_average_latency=round(float(re.findall('\d+\.\d+', line)[0]) / 1000, 5)
+            # Get first_token_average_latency
+            if re.search("Throughput without 1st token:", line):
+                throughput=round(float(re.findall('\d+\.\d+', line)[0]), 5)
             # Get max_latency
             if re.search("Next token Max Latency:", line):
                 max_latency=round(float(re.findall('\d+\.\d+', line)[0]) / 1000, 5)
@@ -71,36 +77,49 @@ def parse_log(log_path):
                 dashboard_id = dashboard_link.split("/")[-1]
                 zip_link = 'https://d15e4ftowigvkb.cloudfront.net/{}-gptj_pytorch_public.zip'.format(dashboard_id)
                 # Get link
-                _link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, model_name)
+                _link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, BASE_MODEL_NAME)
                 # link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, float(latency))
-
+                
                 single_case_list.append(_link)
+                single_case_list.append(model_name)
                 single_case_list.append(precision)
+                single_case_list.append(batch_size)
                 single_case_list.append(input_tokens)
                 single_case_list.append(output_tokens)
-                single_case_list.append(batch_size)
-                single_case_list.append(latency)
+                single_case_list.append("pytorch+xfasttransformer")
+                single_case_list.append("True")
+                single_case_list.append(throughput)
+                single_case_list.append(min_latency)
+                single_case_list.append(max_latency)
+                single_case_list.append(p90_latency)
                 single_case_list.append(first_token_average_latency)
                 single_case_list.append(second_token_average_latency)
-                single_case_list.append(max_latency)
-                single_case_list.append(min_latency)
-                single_case_list.append(p90_latency)
+                single_case_list.append("xftbench")
+                single_case_list.append(dashboard_id)
+                single_case_list.append(latency)
                 # single_case_list.append(dashboard_link)
                 # single_case_list.append(zip_link)
                 single_file_list.append(single_case_list)
                 print('model_name: {0}'.format(model_name))
                 print('precision: {0}'.format(precision))
+                print('batch_size: {0}'.format(batch_size))
                 print('input_tokens: {0}'.format(input_tokens))
                 print('output_tokens: {0}'.format(output_tokens))
-                print('batch_size: {0}'.format(batch_size))
-                print('latency: {0}'.format(latency))
-                print('first_token_average_latency: {0}'.format(first_token_average_latency))
-                print('second_token_average_latency: {0}'.format(second_token_average_latency))
+                print('output_tokens: {0}'.format(throughput))
                 print('max_latency: {0}'.format(max_latency))
                 print('min_latency: {0}'.format(min_latency))
                 print('p90_latency: {0}'.format(p90_latency))
+                print('first_token_average_latency: {0}'.format(first_token_average_latency))
+                print('second_token_average_latency: {0}'.format(second_token_average_latency))
+                print('latency: {0}'.format(latency))
                 print('dashboard_link: {0}'.format(dashboard_link))
                 print('zip_link: {0}'.format(zip_link))
+
+                
+                # cols = ["BaseModelName","Variant", "Precision", "BatchSize", "Input_Tokens","Output_Tokens",
+                # "Framework", "IsPass", "Throughput", "Min_Latency", "Max_Latency" ,"P90_Latency", 
+                # "1st_Token_Latency", "2nd+_Tokens_Average_Latency", "WorkloadName","run_uri_perf", "Latency"]
+                
     
     # print(single_file_list)
     return single_file_list
@@ -282,25 +301,25 @@ tags = ""
 # 10.165.174.148 172.17.29.24
 if local_ip == "172.17.29.24":
     if_docker = "--docker"
-    tags = "{}_SPR_QUAD".format(args.ww.upper())
+    tags = "ww{}_SPR_QUAD".format(args.ww.upper())
     models = [{'llama-2-13b': '/mnt/nfs_share/xft/llama2-xft'}, {'baichuan2-13b': '/mnt/nfs_share/xft/baichuan2-xft'}]
 elif local_ip == "192.168.14.91":
     if_docker = "--docker"
-    tags = "{}_SPR_QUAD".format(args.ww.upper())
+    tags = "ww{}_SPR_QUAD".format(args.ww.upper())
     models = ["llama-2-7b","chatglm2-6b","baichuan2-7b","chatglm-6b"]
 elif local_ip == "192.168.14.121":
-    tags = "{}_HBM_FLAT_SNC4".format(args.ww.upper())
+    tags = "ww{}_HBM_FLAT_SNC4".format(args.ww.upper())
     models = ["llama-2-7b","baichuan2-7b","baichuan2-13b"]
 elif local_ip == "192.168.14.119":
-    tags = "{}_HBM_FLAT_SNC4".format(args.ww.upper())
+    tags = "ww{}_HBM_FLAT_SNC4".format(args.ww.upper())
     models = ["chatglm2-6b","chatglm-6b","llama-2-13b"]
 elif local_ip == "10.165.174.148":
     if_docker = "--docker"
-    tags = "{}_SPR_QUAD".format(args.ww.upper())
+    tags = "ww{}_SPR_QUAD".format(args.ww.upper())
     models = [{'chatglm-6b': '/opt/dataset/chatglm-xft'}, {'baichuan-7b': '/opt/dataset/baichuan-xft'}]
 elif local_ip == "10.45.247.77":
     if_docker = "--docker"
-    tags = "{}_SPR_QUAD_susan_2712".format(args.ww.upper())
+    tags = "ww{}_SPR_QUAD_susan_2712".format(args.ww.upper())
     models = ['chatglm2-6b']
 else:
     print("Not support this IP")
@@ -326,10 +345,10 @@ else:
         # run_workload(workload_name, model, tags, local_ip, if_docker, **args_info_case02)
 
 # run this cmd to create output.log: python3 m_trigger_xft_test.py --platform spr --root_dir /home/jason/test --ww ww44 2>&1 | tee output.log
-# python3 xft.py  --ww ww44 2>&1 | tee output.log
+# python3 xft.py --root_dir /home/yangkun/lab/auto-opt/utils/xft --ww ww44 2>&1 | tee output.log
 # parse output.log
 end_time = time.time()
-output_file = os.path.join(os.path.realpath(os.path.dirname(__file__)), "output_int4_121.log")
+output_file = os.path.join(os.path.realpath(os.path.dirname(__file__)), "output1214_121.log")
 basename = os.path.basename(output_file).split(".")[0]
 output_excel = os.path.join(os.path.realpath(os.path.dirname(__file__)), "{}.xlsx".format(basename))
 print(output_excel)
@@ -339,7 +358,9 @@ if os.path.exists(output_file):
     sheet_list = []
     # output_excel = '{}/{}.xlsx'.format(output_file, "output")
     with pd.ExcelWriter(output_excel) as writer:
-        cols = ["model_name", "precision", "input_tokens","output_tokens", "batch_size", "latency","first_token_average_latency", "second_token_average_latency", "max_latency", "min_latency" , "p90_latency"]
+        cols = ["BaseModelName","Variant", "Precision", "BatchSize", "Input_Tokens","Output_Tokens",
+                "Framework", "IsPass", "Throughput", "Min_Latency", "Max_Latency" ,"P90_Latency", 
+                "1st_Token_Latency", "2nd+_Tokens_Average_Latency", "WorkloadName","run_uri_perf", "Latency"]
         print(len(data))
         df = pd.DataFrame(data, columns=cols)
         df.to_excel(writer)
