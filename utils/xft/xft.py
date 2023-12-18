@@ -5,6 +5,7 @@ import re
 import time
 import pandas as pd
 
+
 def parse_log(log_path):
     """
     parse log
@@ -287,6 +288,8 @@ wsf_root_path = chdir(args.root_dir, "wsf_root_path")
 # wsf_repo = "https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features"
 wsf_repo = "https://github.com/yangkunx/applications.benchmarking.benchmark.platform-hero-features"
 branch = "llm-xft"
+print('\033[32mCurrent wsf_repo is: \033[0m{0}'.format(wsf_repo))
+print('\033[32mCurrent wsf_branch is: \033[0m{0}'.format(branch))
 target_repo_name = "wsf-dev-" + args.ww
 wsf_dir = os.path.join(wsf_root_path, target_repo_name)
 if not os.path.exists(wsf_dir):
