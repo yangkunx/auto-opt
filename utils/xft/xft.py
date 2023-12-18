@@ -5,7 +5,6 @@ import re
 import time
 import pandas as pd
 
-
 def parse_log(log_path):
     """
     parse log
@@ -161,15 +160,17 @@ def chdir(path, text="wsf"):
         parent_dir = os.getcwd()
         print('\033[32mCurrent directory {1} is: \033[0m{0}'.format(parent_dir, text))
     except FileNotFoundError:
-        print("Directory: {0} does not exist".format(path))
+        print("\033[1;31;40m Directory: {0} does not exist \033[0m".format(path))
         parent_dir = None
+        exit(1)
     except NotADirectoryError:
-        print("{0} is not a directory".format(path))
+        print("\033[1;31;40m {0} is not a directory \033[0m".format(path))
         parent_dir = None
+        exit(1)
     except PermissionError:
-        print("You do not have permissions to change to {0}".format(path))
+        print("\033[1;31;40m You do not have permissions to change to {0} \033[0m".format(path))
         parent_dir = None
-    
+        exit(1)
     return parent_dir
 
 
@@ -249,7 +250,7 @@ def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_
                 --owner=sf-post-silicon' -DTIMEOUT=60000,3600 ..".format(local_ip, if_docker,tags)
     print('\033[32mcmake命令:\033[0m {}'.format(cmake_cmd))
     os.system(cmake_cmd)
-    chdir(os.path.join(build_path, "workload", workload))
+    chdir(os.path.join(build_path, "workload", workload), "ww_build_workload_path")
     if not dry_run:
         os.system("make")
     #准备sut
@@ -272,7 +273,7 @@ def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--ww", type=str, required=True, help="work week")
-parser.add_argument("--root_dir", type=str, default="/home/wsf")
+parser.add_argument("--root_dir", "--r", type=str, default=".")
 parser.add_argument("--platform", type=str, default="spr")
 parser.add_argument("--test", "--t", action="store_true", help="test the case or run env")
 parser.add_argument("--dry_run", "--d", action="store_true", help="dry run")
@@ -343,7 +344,7 @@ else:
 # args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32,512,1024,2048], 
 #                     'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4,8,16,32]}
 
-workload_name = 'xFTBench'
+workload_name = 'LLMs-xFT-Public'
 
 # run model
 start_time = time.time()
@@ -358,7 +359,7 @@ else:
         # run_workload(workload_name, model, tags, local_ip, if_docker, **args_info_case02)
 
 # run this cmd to create output.log: python3 m_trigger_xft_test.py --platform spr --root_dir /home/jason/test --ww ww44 2>&1 | tee output.log
-# python3 xft.py --root_dir /home/yangkun/lab/auto-opt/utils/xft --ww ww44 2>&1 | tee output.log
+# python3 xft.py  --ww 44 --dry_run 2>&1 | tee output.log
 # parse output.log
 end_time = time.time()
 output_file = os.path.join(os.path.realpath(os.path.dirname(__file__)), "output1214_121.log")
