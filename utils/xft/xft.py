@@ -152,14 +152,14 @@ def set_index(core):
 #     border_fmt = workbook.add_format({'bottom':1, 'top':1, 'left':1, 'right':1})
 #     worksheet.conditional_format(xlsxwriter.utility.xl_range(0, 0, len(df), len(df.columns)+column_no), {'type': 'no_errors', 'format': border_fmt})
 
-def chdir(path):
+def chdir(path, text="wsf"):
     """
     check and change directory
     """
     try:
         os.chdir(path)
         parent_dir = os.getcwd()
-        print('\033[32mCurrent working directory: \033[0m{0}'.format(parent_dir))
+        print('\033[32mCurrent directory {1} is: \033[0m{0}'.format(parent_dir, text))
     except FileNotFoundError:
         print("Directory: {0} does not exist".format(path))
         parent_dir = None
@@ -238,9 +238,11 @@ def format_args(**kwargs):
     
 def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_run=False, **kwargs):
     build_name = "build_" + model
+    if "/" in model:
+        build_name = "build_" + model.replace("/","_")
     build_path = os.path.join(ww_repo_dir, build_name)
     create_dir_or_file(build_path)
-    chdir(build_path)
+    chdir(build_path, "ww_repo_model_build")
     #cmake
     cmake_cmd = "cmake -DREGISTRY={}:20666 -DPLATFORM=SPR -DRELEASE=latest -DACCEPT_LICENSE=ALL -DBACKEND=terraform -DBENCHMARK= \
                 -DTERRAFORM_SUT=static -DTERRAFORM_OPTIONS='{} --svrinfo --intel_publish --tags={} \
@@ -272,23 +274,23 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--ww", type=str, required=True, help="work week")
 parser.add_argument("--root_dir", type=str, default="/home/wsf")
 parser.add_argument("--platform", type=str, default="spr")
+parser.add_argument("--test", "--t", action="store_true", help="test the case or run env")
 parser.add_argument("--dry_run", "--d", action="store_true", help="dry run")
 
 args = parser.parse_args()
 
 create_dir_or_file(args.root_dir)
-chdir(args.root_dir)
-
+wsf_root_path = chdir(args.root_dir, "wsf_root_path")
 # git clone code
 #wsf_repo = "https://github.com/JunxiChhen/applications.benchmarking.benchmark.platform-hero-features"
-wsf_repo = "https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features"
-branch = "develop"
+# wsf_repo = "https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features"
+wsf_repo = "https://github.com/yangkunx/applications.benchmarking.benchmark.platform-hero-features"
+branch = "llm-xft"
 target_repo_name = "wsf-dev-" + args.ww
-wsf_dir = os.path.join(args.root_dir, target_repo_name)
+wsf_dir = os.path.join(wsf_root_path, target_repo_name)
 if not os.path.exists(wsf_dir):
     os.system("git clone -b {} {} {}".format(branch, wsf_repo, wsf_dir))
-ww_repo_dir = chdir(wsf_dir)
-
+ww_repo_dir = chdir(wsf_dir, "ww_repo_dir")
 #get local ip
 local_ip, local_user= get_local_ip_user()
 
@@ -325,16 +327,27 @@ else:
     print("Not support this IP")
     exit(1)
 
-# args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 20, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1]}
-# args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1,2]}
-# args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048]}
-args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_int4'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048]}
-# args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4,8,16,32]}
+# args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 20, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16'],
+#                     'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1]}
+# args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32], 
+#                     'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1,2]}
+
+# args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_int4'], 
+#                     'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048]}
+if args.test:
+    args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
+                        'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32]}
+else:
+    args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
+                        'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048]}   
+# args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32,512,1024,2048], 
+#                     'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4,8,16,32]}
+
 workload_name = 'xFTBench'
 
 # run model
 start_time = time.time()
-if local_ip == "172.17.29.24":
+if local_ip == "172.17.29.24" or local_ip == "10.165.174.148":
     for all_models in models:
         for model, model_path in all_models.items():
             run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)
@@ -351,7 +364,7 @@ end_time = time.time()
 output_file = os.path.join(os.path.realpath(os.path.dirname(__file__)), "output1214_121.log")
 basename = os.path.basename(output_file).split(".")[0]
 output_excel = os.path.join(os.path.realpath(os.path.dirname(__file__)), "{}.xlsx".format(basename))
-print(output_excel)
+# print(output_excel)
 if os.path.exists(output_file):
     print('{0}\033[32m parse log result \033[0m{1}'.format("-"*50,"-"*50))
     data = parse_log(output_file)
