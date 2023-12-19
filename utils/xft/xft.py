@@ -12,8 +12,10 @@ import pandas as pd
     python3 xft.py  --ww 51
 # Test the running env:
     python3 xft.py  --ww 51 --t --d
-# run this cmd to create output.log: 
+# Run this cmd to create output.log: 
     python3 xft.py  --ww 51  2>&1 | tee output.log
+# Only parse the ouput log: 
+    python3 xft.py --o
 """
 
 def parse_log(log_path):
@@ -255,89 +257,91 @@ def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--ww", type=str, required=True, help="work week")
-parser.add_argument("--root_dir", "--r", type=str, default=".")
-parser.add_argument("--platform", type=str, default="spr")
+parser.add_argument("--ww", type=str, default="40", help="work week")
+parser.add_argument("--root_dir", "--r", type=str, default=".", help="wsf code and exec script root_dir")
+parser.add_argument("--platform", type=str, default="spr", help="the platform of run case")
 parser.add_argument("--test", "--t", action="store_true", help="test the case or run env")
 parser.add_argument("--dry_run", "--d", action="store_true", help="dry run")
+parser.add_argument("--only_parse", "--o", action="store_true", help="Only parse the log")
 
 args = parser.parse_args()
 
-create_dir_or_file(args.root_dir)
-wsf_root_path = chdir(args.root_dir, "wsf_root_path")
-# git clone code
-#wsf_repo = "https://github.com/JunxiChhen/applications.benchmarking.benchmark.platform-hero-features"
-# wsf_repo = "https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features"
-wsf_repo = "https://github.com/yangkunx/applications.benchmarking.benchmark.platform-hero-features"
-branch = "llm-xft"
-print('\033[32mCurrent wsf_repo is: \033[0m{0}'.format(wsf_repo))
-print('\033[32mCurrent wsf_branch is: \033[0m{0}'.format(branch))
-target_repo_name = "wsf-dev-" + args.ww
-wsf_dir = os.path.join(wsf_root_path, target_repo_name)
-if not os.path.exists(wsf_dir):
-    os.system("git clone -b {} {} {}".format(branch, wsf_repo, wsf_dir))
-ww_repo_dir = chdir(wsf_dir, "ww_repo_dir")
-#get local ip
-local_ip, local_user= get_local_ip_user()
-
-# modify terraform config
-terraform_config_file = os.path.join(wsf_dir, "script/terraform/terraform-config.static.tf")
-replacetext(local_ip, local_user)
-
-if_docker = ""
-tags = ""
-# 10.165.174.148 172.17.29.24
-if local_ip == "172.17.29.24":
-    if_docker = "--docker"
-    tags = "ww{}_SPR_QUAD".format(args.ww.upper())
-    models = [{'llama-2-13b': '/mnt/nfs_share/xft/llama2-xft'}, {'baichuan2-13b': '/mnt/nfs_share/xft/baichuan2-xft'}]
-elif local_ip == "192.168.14.61":
-    if_docker = "--docker"
-    tags = "ww{}_SPR_QUAD".format(args.ww.upper())
-    models = ["llama-2-7b","chatglm2-6b","baichuan2-7b","chatglm-6b"]
-elif local_ip == "192.168.14.121":
-    tags = "ww{}_HBM_FLAT_SNC4".format(args.ww.upper())
-    models = ["llama-2-7b","baichuan2-7b","baichuan2-13b"]
-elif local_ip == "192.168.14.119":
-    tags = "ww{}_HBM_FLAT_SNC4".format(args.ww.upper())
-    models = ["chatglm2-6b","chatglm-6b","llama-2-13b"]
-elif local_ip == "10.165.174.148":
-    if_docker = "--docker"
-    tags = "ww{}_SPR_QUAD".format(args.ww.upper())
-    models = [{'chatglm-6b': '/opt/dataset/chatglm-xft'}, {'baichuan-7b': '/opt/dataset/baichuan-xft'}]
-elif local_ip == "10.45.247.77":
-    if_docker = "--docker"
-    tags = "ww{}_SPR_QUAD_susan_2712".format(args.ww.upper())
-    models = ['chatglm2-6b']
-else:
-    print("Not support this IP")
-    exit(1)
-
-
-# Only test the running env on each server when args.test is True
-if args.test:
-    args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
-                         'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
-                        'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32] }
-else:
-    args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
-                         'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
-                         'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048] }
-
-workload_name = 'LLMs-xFT-Public'
-
-# run model
 start_time = time.time()
-if local_ip == "172.17.29.24" or local_ip == "10.165.174.148":
-    for all_models in models:
-        for model, model_path in all_models.items():
-            run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)      
-else:
-    for model in models:
-        run_workload(workload_name, model, tags, local_ip, if_docker, dry_run=args.dry_run, **args_info_case01)
+if not args.only_parse:
+    create_dir_or_file(args.root_dir)
+    wsf_root_path = chdir(args.root_dir, "wsf_root_path")
+    # git clone code
+    # wsf_repo = "https://github.com/JunxiChhen/applications.benchmarking.benchmark.platform-hero-features"
+    # wsf_repo = "https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features"
+    wsf_repo = "https://github.com/yangkunx/applications.benchmarking.benchmark.platform-hero-features"
+    branch = "llm-xft"
+    print('\033[32mCurrent wsf_repo is: \033[0m{0}'.format(wsf_repo))
+    print('\033[32mCurrent wsf_branch is: \033[0m{0}'.format(branch))
+    target_repo_name = "wsf-dev-" + args.ww
+    wsf_dir = os.path.join(wsf_root_path, target_repo_name)
+    if not os.path.exists(wsf_dir):
+        os.system("git clone -b {} {} {}".format(branch, wsf_repo, wsf_dir))
+    ww_repo_dir = chdir(wsf_dir, "ww_repo_dir")
+    #get local ip
+    local_ip, local_user= get_local_ip_user()
+
+    # modify terraform config
+    terraform_config_file = os.path.join(wsf_dir, "script/terraform/terraform-config.static.tf")
+    replacetext(local_ip, local_user)
+
+    if_docker = ""
+    tags = ""
+    # 10.165.174.148 172.17.29.24
+    if local_ip == "172.17.29.24":
+        if_docker = "--docker"
+        tags = "ww{}_SPR_QUAD".format(args.ww.upper())
+        models = [{'llama-2-13b': '/mnt/nfs_share/xft/llama2-xft'}, {'baichuan2-13b': '/mnt/nfs_share/xft/baichuan2-xft'}]
+    elif local_ip == "192.168.14.61":
+        if_docker = "--docker"
+        tags = "ww{}_SPR_QUAD".format(args.ww.upper())
+        models = ["llama-2-7b","chatglm2-6b","baichuan2-7b","chatglm-6b"]
+    elif local_ip == "192.168.14.121":
+        tags = "ww{}_HBM_FLAT_SNC4".format(args.ww.upper())
+        models = ["llama-2-7b","baichuan2-7b","baichuan2-13b"]
+    elif local_ip == "192.168.14.119":
+        tags = "ww{}_HBM_FLAT_SNC4".format(args.ww.upper())
+        models = ["chatglm2-6b","chatglm-6b","llama-2-13b"]
+    elif local_ip == "10.165.174.148":
+        if_docker = "--docker"
+        tags = "ww{}_SPR_QUAD".format(args.ww.upper())
+        models = [{'chatglm-6b': '/opt/dataset/chatglm-xft'}, {'baichuan-7b': '/opt/dataset/baichuan-xft'}]
+    elif local_ip == "10.45.247.77":
+        if_docker = "--docker"
+        tags = "ww{}_SPR_QUAD_susan_2712".format(args.ww.upper())
+        models = ['chatglm2-6b']
+    else:
+        print("Not support this IP")
+        exit(1)
+
+
+    # Only test the running env on each server when args.test is True
+    if args.test:
+        args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
+                            'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
+                            'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32] }
+    else:
+        args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
+                            'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
+                            'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048] }
+
+    workload_name = 'LLMs-xFT-Public'
+
+    # run model
+
+    if local_ip == "172.17.29.24" or local_ip == "10.165.174.148":
+        for all_models in models:
+            for model, model_path in all_models.items():
+                run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)      
+    else:
+        for model in models:
+            run_workload(workload_name, model, tags, local_ip, if_docker, dry_run=args.dry_run, **args_info_case01)
 
 # parse output.log
-end_time = time.time()
 script_exec_path = os.path.realpath(os.path.dirname(__file__))
 file_list = glob.glob(script_exec_path + "/output*.log")
 summary_excel = os.path.join(script_exec_path, "{}.xlsx".format("summary"))
@@ -369,4 +373,5 @@ if len(file_list) != 0:
         df = pd.DataFrame(each_kpi_summary, columns=cols)
         df.to_excel(writer, index=False)
 
+end_time = time.time()
 print("耗时: {:.2f}秒".format(end_time - start_time))
