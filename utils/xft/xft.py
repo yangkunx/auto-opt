@@ -134,34 +134,6 @@ def parse_log(log_path):
     # print(single_file_list)
     return single_file_list
 
-def set_index(core):
-    """Create multi index
-
-    Args:
-        core (int): core
-
-    Returns:
-        _type_: function
-        value: multi_index
-    """
-    multi_index = pd.MultiIndex.from_tuples([(core, "2.8Ghz"), (core, "3.0Ghz"), (core, "3.2Ghz"), (core, "3.4Ghz"), (core, "3.6Ghz"),
-                                             (core, "3.8Ghz")], names=['core', 'fre'])
-    return multi_index
-
-# def set_style(df, sheet_name, column_no=0):
-#     """Setting sheet style
-
-#     Args:
-#         df (dataframe): a dataframe
-#         sheet_name (string): the name of sheet
-#         column_no (int, optional): add columns num. Defaults to 0.
-#     """
-#     workbook = writer.book
-#     worksheet = writer.sheets[sheet_name]
-    
-#     border_fmt = workbook.add_format({'bottom':1, 'top':1, 'left':1, 'right':1})
-#     worksheet.conditional_format(xlsxwriter.utility.xl_range(0, 0, len(df), len(df.columns)+column_no), {'type': 'no_errors', 'format': border_fmt})
-
 def chdir(path, text="wsf"):
     """
     check and change directory
@@ -344,11 +316,13 @@ else:
 
 # Only test the running env on each server when args.test is True
 if args.test:
-    args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
-                        'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32]}
+    args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
+                         'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
+                        'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32] }
 else:
-    args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
-                        'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048]}
+    args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
+                         'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
+                         'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048] }
 
 workload_name = 'LLMs-xFT-Public'
 
