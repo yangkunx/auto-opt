@@ -4,6 +4,7 @@ import socket
 import re
 import time
 import glob
+import docker
 import pandas as pd
 
 
@@ -17,6 +18,23 @@ import pandas as pd
 # Only parse the ouput log: 
     python3 xft.py --o
 """
+
+def check_container(container_name: str):
+    """Verify the status of a container by it's name
+
+    :param container_name: the name of the container
+    :return: boolean or None
+    """
+    RUNNING = "running"
+    docker_client = docker.from_env()
+
+    try:
+        container = docker_client.containers.get(container_name)
+    except docker.errors.NotFound as exc:
+        print(f"Check container name!\n{exc.explanation}")
+    else:
+        container_state = container.attrs["State"]
+        return container_state["Status"] == RUNNING
 
 def parse_log(log_path):
     """
@@ -284,7 +302,12 @@ if not args.only_parse:
     ww_repo_dir = chdir(wsf_dir, "ww_repo_dir")
     #get local ip
     local_ip, local_user= get_local_ip_user()
-
+    container_name = "dev-registry"
+    if not check_container(container_name):
+        print("\033[1;31;40m container: {0} does not exist \033[0m".format(container_name))
+        print("\033[32mRun cmd to install registry\033[0m")
+        cmd = "./script/setup/setup-reg.sh {}:20666".format(local_ip)
+        os.system(cmd)
     # modify terraform config
     terraform_config_file = os.path.join(wsf_dir, "script/terraform/terraform-config.static.tf")
     replacetext(local_ip, local_user)
