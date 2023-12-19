@@ -7,6 +7,15 @@ import glob
 import pandas as pd
 
 
+"""
+# Directly execute the following command:
+    python3 xft.py  --ww 51
+# Test the running env:
+    python3 xft.py  --ww 51 --t --d
+# run this cmd to create output.log: 
+    python3 xft.py  --ww 51  2>&1 | tee output.log
+"""
+
 def parse_log(log_path):
     """
     parse log
@@ -310,7 +319,7 @@ if local_ip == "172.17.29.24":
     if_docker = "--docker"
     tags = "ww{}_SPR_QUAD".format(args.ww.upper())
     models = [{'llama-2-13b': '/mnt/nfs_share/xft/llama2-xft'}, {'baichuan2-13b': '/mnt/nfs_share/xft/baichuan2-xft'}]
-elif local_ip == "192.168.14.91":
+elif local_ip == "192.168.14.61":
     if_docker = "--docker"
     tags = "ww{}_SPR_QUAD".format(args.ww.upper())
     models = ["llama-2-7b","chatglm2-6b","baichuan2-7b","chatglm-6b"]
@@ -332,21 +341,14 @@ else:
     print("Not support this IP")
     exit(1)
 
-# args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 20, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16'],
-#                     'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1]}
-# args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32], 
-#                     'OUTPUT_TOKENS': [32], 'BATCH_SIZE':[1,2]}
 
-# args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_int4'], 
-#                     'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048]}
+# Only test the running env on each server when args.test is True
 if args.test:
     args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
                         'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32]}
 else:
     args_info_case01 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
-                        'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048]}   
-# args_info_case02 = {"WARMUP_STEPS": 1, 'STEPS': 5, 'PRECISION': ['bf16'], 'INPUT_TOKENS': [32,512,1024,2048], 
-#                     'OUTPUT_TOKENS': [32,128,512,1024,2048], 'BATCH_SIZE':[1,4,8,16,32]}
+                        'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048]}
 
 workload_name = 'LLMs-xFT-Public'
 
@@ -355,15 +357,11 @@ start_time = time.time()
 if local_ip == "172.17.29.24" or local_ip == "10.165.174.148":
     for all_models in models:
         for model, model_path in all_models.items():
-            run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)
-            # run_workload(workload_name, model, tags, local_ip, if_docker, model_path, **args_info_case02)             
+            run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)      
 else:
     for model in models:
         run_workload(workload_name, model, tags, local_ip, if_docker, dry_run=args.dry_run, **args_info_case01)
-        # run_workload(workload_name, model, tags, local_ip, if_docker, **args_info_case02)
 
-# run this cmd to create output.log: python3 m_trigger_xft_test.py --platform spr --root_dir /home/jason/test --ww ww44 2>&1 | tee output.log
-# python3 xft.py  --ww 44 --dry_run 2>&1 | tee output.log
 # parse output.log
 end_time = time.time()
 script_exec_path = os.path.realpath(os.path.dirname(__file__))
