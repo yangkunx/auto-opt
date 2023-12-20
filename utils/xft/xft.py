@@ -4,7 +4,6 @@ import socket
 import re
 import time
 import glob
-import docker
 import pandas as pd
 
 
@@ -18,23 +17,6 @@ import pandas as pd
 # Only parse the ouput log: 
     python3 xft.py --o
 """
-
-def check_container(container_name: str):
-    """Verify the status of a container by it's name
-
-    :param container_name: the name of the container
-    :return: boolean or None
-    """
-    RUNNING = "running"
-    docker_client = docker.from_env()
-
-    try:
-        container = docker_client.containers.get(container_name)
-    except docker.errors.NotFound as exc:
-        print(f"Check container name!\n{exc.explanation}")
-    else:
-        container_state = container.attrs["State"]
-        return container_state["Status"] == RUNNING
 
 def parse_log(log_path):
     """
@@ -302,12 +284,6 @@ if not args.only_parse:
     ww_repo_dir = chdir(wsf_dir, "ww_repo_dir")
     #get local ip
     local_ip, local_user= get_local_ip_user()
-    container_name = "dev-registry"
-    if not check_container(container_name):
-        print("\033[1;31;40m container: {0} does not exist \033[0m".format(container_name))
-        print("\033[32mRun cmd to install registry\033[0m")
-        cmd = "./script/setup/setup-reg.sh {}:20666".format(local_ip)
-        os.system(cmd)
     # modify terraform config
     terraform_config_file = os.path.join(wsf_dir, "script/terraform/terraform-config.static.tf")
     replacetext(local_ip, local_user)
@@ -322,13 +298,19 @@ if not args.only_parse:
     elif local_ip == "192.168.14.61":
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD".format(args.ww.upper())
-        models = ["llama-2-7b","chatglm2-6b","baichuan2-7b","chatglm-6b"]
+        # models = ["llama-2-7b","chatglm2-6b","baichuan2-7b","chatglm-6b"]
+        models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'chatglm2-6b': '/opt/dataset/chatglm2-xft'},
+                   {'baichuan2-7b': '/opt/dataset/baichuan2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'} ]
     elif local_ip == "192.168.14.121":
         tags = "ww{}_HBM_FLAT_SNC4".format(args.ww.upper())
-        models = ["llama-2-7b","baichuan2-7b","baichuan2-13b"]
+        # models = ["llama-2-7b","baichuan2-7b","baichuan2-13b"]
+        models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'baichuan2-7b': '/opt/dataset/baichuan2-xft'}, 
+                  {'baichuan2-13b': '/opt/dataset/baichuan2-xft'} ]
     elif local_ip == "192.168.14.119":
         tags = "ww{}_HBM_FLAT_SNC4".format(args.ww.upper())
-        models = ["chatglm2-6b","chatglm-6b","llama-2-13b"]
+        # models = ["chatglm2-6b","chatglm-6b","llama-2-13b"]
+        models = [ {'chatglm2-6b': '/opt/dataset/chatglm2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'}, 
+                  {'llama-2-13b': '/opt/dataset/llama2-xft'} ]
     elif local_ip == "10.165.174.148":
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD".format(args.ww.upper())
@@ -336,7 +318,7 @@ if not args.only_parse:
     elif local_ip == "10.45.247.77":
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD_susan_2712".format(args.ww.upper())
-        models = ['chatglm2-6b']
+        models = [{'chatglm2-6b': '/opt/dataset/chatglm2-xft'}]
     else:
         print("Not support this IP")
         exit(1)
@@ -356,13 +338,13 @@ if not args.only_parse:
 
     # run model
 
-    if local_ip == "172.17.29.24" or local_ip == "10.165.174.148":
-        for all_models in models:
-            for model, model_path in all_models.items():
-                run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)      
-    else:
-        for model in models:
-            run_workload(workload_name, model, tags, local_ip, if_docker, dry_run=args.dry_run, **args_info_case01)
+    # if local_ip == "172.17.29.24" or local_ip == "10.165.174.148":
+    for all_models in models:
+        for model, model_path in all_models.items():
+            run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)      
+    # else:
+    #     for model in models:
+    #         run_workload(workload_name, model, tags, local_ip, if_docker, dry_run=args.dry_run, **args_info_case01)
 
 # parse output.log
 script_exec_path = os.path.realpath(os.path.dirname(__file__))
