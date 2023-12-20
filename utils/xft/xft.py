@@ -394,6 +394,7 @@ if not args.only_parse:
 script_exec_path = os.path.realpath(os.path.dirname(__file__))
 file_list = glob.glob(script_exec_path + "/output*.log")
 summary_excel = os.path.join(script_exec_path, "{}.xlsx".format("summary"))
+print('\033[32mLog file list is: \033[0m{0}'.format(file_list))
 each_kpi_summary = []
 if len(file_list) != 0:
     for file in file_list:
