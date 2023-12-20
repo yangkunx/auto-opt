@@ -5,6 +5,8 @@ import re
 import time
 import glob
 import pandas as pd
+# from kubernetes import client, config
+# from kubernetes.client.rest import ApiException
 
 
 """
@@ -17,6 +19,48 @@ import pandas as pd
 # Only parse the ouput log: 
     python3 xft.py --o
 """
+
+### clean unused pod and job
+# def clean_job_and_pod(clean_name):
+#     # Configs can be set in Configuration class directly or using helper utility
+#     config.load_kube_config()
+
+#     v1 = client.BatchV1Api()
+#     ret_all_job = v1.list_job_for_all_namespaces(watch=False)
+#     # pprint(ret)
+#     for item in ret_all_job.items:
+#         # pprint(i.metadata)
+#         name = item.metadata.name
+#         namespace = item.metadata.namespace
+#         # "llms-xft-public"
+#         if re.search(clean_name, name):
+#             # print(item.metadata.name)
+#             # print(i.metadata.namespace)
+#             print(
+#             "%s\t%s\t%s" %
+#             (item.metadata.namespace,
+#                 item.metadata.name))
+#             try:
+#                 v1.delete_namespaced_job(name, namespace)
+#             except ApiException as e:
+#                 print("Exception when calling BatchV1Api->delete_namespaced_job: %s\n" % e)
+        
+#     v1 = client.CoreV1Api()
+#     ret_all_pod = v1.list_pod_for_all_namespaces(watch=False)
+#     for item in ret_all_pod.items:
+        
+#         name = item.metadata.name
+#         ns = item.metadata.namespace
+#         if re.search(clean_name, name):
+#             print(
+#             "%s\t%s\t%s" %
+#             (item.status.pod_ip,
+#                 item.metadata.namespace,
+#                 item.metadata.name))
+#             try:
+#                 v1.delete_namespaced_pod(name, namespace)
+#             except ApiException as e:
+#                 print("Exception when calling CoreV1Api->delete_namespaced_pod: %s\n" % e)
 
 def parse_log(log_path):
     """
@@ -328,7 +372,7 @@ if not args.only_parse:
     if args.test:
         args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
                             'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
-                            'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32] }
+                            'INPUT_TOKENS': [2048], 'OUTPUT_TOKENS': [2048] }
     else:
         args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
                             'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
