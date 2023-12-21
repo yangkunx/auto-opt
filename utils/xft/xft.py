@@ -62,7 +62,7 @@ import pandas as pd
 #             except ApiException as e:
 #                 print("Exception when calling CoreV1Api->delete_namespaced_pod: %s\n" % e)
 
-def parse_log(log_path):
+def parse_log(log_path, local_ip):
     """
     parse log
     """
@@ -71,6 +71,9 @@ def parse_log(log_path):
     with open(log_path, 'r') as ds_log:
         lines = ds_log.readlines()
         for line in lines:
+            if re.search("Setting: REGISTRY=", line):
+                # print(line)
+                collect_ip = re.findall(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', line)[0]
             if re.search("\d\:\sMODE=", line):
                 single_case_list = []
                 latency=0
@@ -152,7 +155,7 @@ def parse_log(log_path):
                 single_case_list.append(second_token_average_latency)
                 single_case_list.append("xftbench")
                 single_case_list.append(dashboard_id)
-                single_case_list.append(latency)
+                single_case_list.append(collect_ip)
                 # single_case_list.append(dashboard_link)
                 # single_case_list.append(zip_link)
                 single_file_list.append(single_case_list)
@@ -170,11 +173,8 @@ def parse_log(log_path):
                 print('latency: {0}'.format(latency))
                 print('dashboard_link: {0}'.format(_link))
                 print('zip_link: {0}'.format(zip_link))
+                print('local_ip: {0}'.format(collect_ip))
 
-                
-                # cols = ["BaseModelName","Variant", "Precision", "BatchSize", "Input_Tokens","Output_Tokens",
-                # "Framework", "IsPass", "Throughput", "Min_Latency", "Max_Latency" ,"P90_Latency", 
-                # "1st_Token_Latency", "2nd+_Tokens_Average_Latency", "WorkloadName","run_uri_perf", "Latency"]
                 
     
     # print(single_file_list)
@@ -310,8 +310,11 @@ parser.add_argument("--only_parse", "--o", action="store_true", help="Only parse
 
 args = parser.parse_args()
 
+#get local ip
+local_ip, local_user= get_local_ip_user()
+
 start_time = time.time()
-if not args.only_parse:
+if not args.only_parse or (args.only_parse and args.dry_run) or (args.only_parse and args.test) or (args.only_parse and args.test and args.dry_run ):
     create_dir_or_file(args.root_dir)
     wsf_root_path = chdir(args.root_dir, "wsf_root_path")
     # git clone code
@@ -326,8 +329,7 @@ if not args.only_parse:
     if not os.path.exists(wsf_dir):
         os.system("git clone -b {} {} {}".format(branch, wsf_repo, wsf_dir))
     ww_repo_dir = chdir(wsf_dir, "ww_repo_dir")
-    #get local ip
-    local_ip, local_user= get_local_ip_user()
+
     # modify terraform config
     terraform_config_file = os.path.join(wsf_dir, "script/terraform/terraform-config.static.tf")
     replacetext(local_ip, local_user)
@@ -358,7 +360,8 @@ if not args.only_parse:
     elif local_ip == "10.165.174.148":
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD".format(args.ww.upper())
-        models = [{'chatglm-6b': '/opt/dataset/chatglm-xft'}, {'baichuan-7b': '/opt/dataset/baichuan-xft'}]
+        # models = [{'chatglm-6b': '/opt/dataset/chatglm-xft'}, {'baichuan-7b': '/opt/dataset/baichuan-xft'}]
+        models = [{'chatglm-6b': '/opt/dataset/chatglm-xft'}]
     elif local_ip == "10.45.247.77":
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD_susan_2712".format(args.ww.upper())
@@ -372,7 +375,7 @@ if not args.only_parse:
     if args.test:
         args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
                             'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
-                            'INPUT_TOKENS': [2048], 'OUTPUT_TOKENS': [2048] }
+                            'INPUT_TOKENS': [32,2048], 'OUTPUT_TOKENS': [32] }
     else:
         args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
                             'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
@@ -381,47 +384,43 @@ if not args.only_parse:
     workload_name = 'LLMs-xFT-Public'
 
     # run model
-
-    # if local_ip == "172.17.29.24" or local_ip == "10.165.174.148":
     for all_models in models:
         for model, model_path in all_models.items():
-            run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)      
-    # else:
-    #     for model in models:
-    #         run_workload(workload_name, model, tags, local_ip, if_docker, dry_run=args.dry_run, **args_info_case01)
+            run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)
 
-# parse output.log
-script_exec_path = os.path.realpath(os.path.dirname(__file__))
-file_list = glob.glob(script_exec_path + "/output*.log")
-summary_excel = os.path.join(script_exec_path, "{}.xlsx".format("summary"))
-print('\033[32mLog file list is: \033[0m{0}'.format(file_list))
-each_kpi_summary = []
-if len(file_list) != 0:
-    for file in file_list:
-        output_file = os.path.join(script_exec_path, file)
-        basename = os.path.basename(output_file).split(".")[0]
-        output_excel = os.path.join(script_exec_path, "{}.xlsx".format(basename))
-        # print(output_excel)
+if (args.only_parse and args.dry_run) or (args.only_parse and args.test) or (args.only_parse and args.test and args.dry_run ) or args.only_parse:
+    # parse output.log
+    script_exec_path = os.path.realpath(os.path.dirname(__file__))
+    file_list = glob.glob(script_exec_path + "/output*.log")
+    summary_excel = os.path.join(script_exec_path, "{}.xlsx".format("summary"))
+    print('\033[32mLog file list is: \033[0m{0}'.format(file_list))
+    each_kpi_summary = []
+    if len(file_list) != 0:
+        for file in file_list:
+            output_file = os.path.join(script_exec_path, file)
+            basename = os.path.basename(output_file).split(".")[0]
+            output_excel = os.path.join(script_exec_path, "{}.xlsx".format(basename))
+            # print(output_excel)
 
-        if os.path.exists(output_file):
-            print('{0}\033[32m parse log result \033[0m{1}'.format("-"*50,"-"*50))
-            data = parse_log(output_file)
-            sheet_list = []
-            # output_excel = '{}/{}.xlsx'.format(output_file, "output")
-            with pd.ExcelWriter(output_excel) as writer:
-                cols = ["BaseModelName","Variant", "Precision", "BatchSize", "Input_Tokens","Output_Tokens",
-                        "Framework", "IsPass", "Throughput", "Min_Latency", "Max_Latency" ,"P90_Latency", 
-                        "1st_Token_Latency", "2nd+_Tokens_Average_Latency", "WorkloadName","run_uri_perf", "Latency"]
-                print(len(data))
-                df = pd.DataFrame(data, columns=cols)
-                df.to_excel(writer, index=False)
-                each_kpi_summary.append(data)
+            if os.path.exists(output_file):
+                print('{0}\033[32m parse log result \033[0m{1}'.format("-"*50,"-"*50))
+                data = parse_log(output_file, local_ip)
+                sheet_list = []
+                # output_excel = '{}/{}.xlsx'.format(output_file, "output")
+                with pd.ExcelWriter(output_excel) as writer:
+                    cols = ["BaseModelName","Variant", "Precision", "BatchSize", "Input_Tokens","Output_Tokens",
+                            "Framework", "IsPass", "Throughput", "Min_Latency", "Max_Latency" ,"P90_Latency", 
+                            "1st_Token_Latency", "2nd+_Tokens_Average_Latency", "WorkloadName","run_uri_perf", "local_IP"]
+                    print(len(data))
+                    df = pd.DataFrame(data, columns=cols)
+                    df.to_excel(writer, index=False)
+                    each_kpi_summary.append(data)
 
-    with pd.ExcelWriter(summary_excel) as writer:
-        each_kpi_summary = sum(each_kpi_summary, [])
-        print(len(each_kpi_summary))
-        df = pd.DataFrame(each_kpi_summary, columns=cols)
-        df.to_excel(writer, index=False)
+        with pd.ExcelWriter(summary_excel) as writer:
+            each_kpi_summary = sum(each_kpi_summary, [])
+            print(len(each_kpi_summary))
+            df = pd.DataFrame(each_kpi_summary, columns=cols)
+            df.to_excel(writer, index=False)
 
 end_time = time.time()
 print("耗时: {:.2f}秒".format(end_time - start_time))
