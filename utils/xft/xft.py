@@ -10,11 +10,13 @@ import pandas as pd
 
 
 """
-# Directly execute the following command:
+# Directly execute the following command and no logs will be output:
     python3 xft.py  --ww 51
-# Test the running env:
+# Only print the command of run case and and the cases of all models will not be run:
+    python3 xft.py  --ww 51  --d
+# Test the test case running env:
     python3 xft.py  --ww 51 --t --d
-# Run this cmd to create output.log: 
+# Run this cmd and output to the output.log: 
     python3 xft.py  --ww 51  2>&1 | tee output.log
 # Only parse the ouput log: 
     python3 xft.py --o
@@ -344,17 +346,14 @@ if not args.only_parse or (args.only_parse and args.dry_run) or (args.only_parse
     elif local_ip == "192.168.14.61":
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD".format(args.ww.upper())
-        # models = ["llama-2-7b","chatglm2-6b","baichuan2-7b","chatglm-6b"]
         models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'chatglm2-6b': '/opt/dataset/chatglm2-xft'},
                    {'baichuan2-7b': '/opt/dataset/baichuan2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'} ]
     elif local_ip == "192.168.14.121":
         tags = "ww{}_HBM_FLAT_SNC4".format(args.ww.upper())
-        # models = ["llama-2-7b","baichuan2-7b","baichuan2-13b"]
         models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'baichuan2-7b': '/opt/dataset/baichuan2-xft'}, 
                   {'baichuan2-13b': '/opt/dataset/baichuan2-xft'} ]
     elif local_ip == "192.168.14.119":
         tags = "ww{}_HBM_FLAT_SNC4".format(args.ww.upper())
-        # models = ["chatglm2-6b","chatglm-6b","llama-2-13b"]
         models = [ {'chatglm2-6b': '/opt/dataset/chatglm2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'}, 
                   {'llama-2-13b': '/opt/dataset/llama2-xft'} ]
     elif local_ip == "10.165.174.148":
@@ -369,7 +368,6 @@ if not args.only_parse or (args.only_parse and args.dry_run) or (args.only_parse
     else:
         print("Not support this IP")
         exit(1)
-
 
     # Only test the running env on each server when args.test is True
     if args.test:
@@ -400,13 +398,11 @@ if (args.only_parse and args.dry_run) or (args.only_parse and args.test) or (arg
             output_file = os.path.join(script_exec_path, file)
             basename = os.path.basename(output_file).split(".")[0]
             output_excel = os.path.join(script_exec_path, "{}.xlsx".format(basename))
-            # print(output_excel)
 
             if os.path.exists(output_file):
                 print('{0}\033[32m parse log result \033[0m{1}'.format("-"*50,"-"*50))
                 data = parse_log(output_file, local_ip)
                 sheet_list = []
-                # output_excel = '{}/{}.xlsx'.format(output_file, "output")
                 with pd.ExcelWriter(output_excel) as writer:
                     cols = ["BaseModelName","Variant", "Precision", "BatchSize", "Input_Tokens","Output_Tokens",
                             "Framework", "IsPass", "Throughput", "Min_Latency", "Max_Latency" ,"P90_Latency", 
@@ -415,7 +411,8 @@ if (args.only_parse and args.dry_run) or (args.only_parse and args.test) or (arg
                     df = pd.DataFrame(data, columns=cols)
                     df.to_excel(writer, index=False)
                     each_kpi_summary.append(data)
-
+        
+        # Summary multiple output logs
         with pd.ExcelWriter(summary_excel) as writer:
             each_kpi_summary = sum(each_kpi_summary, [])
             print(len(each_kpi_summary))
