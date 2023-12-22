@@ -10,14 +10,26 @@ import pandas as pd
 
 
 """
-# Directly execute the following command and no logs will be output:
-    python3 xft.py  --ww 51
+# Directly execute the following command to run weekly test  and no logs will be output:
+    python3 xft.py  --ww 51 --weekly
+    or
+    python3 xft.py  --ww 51 --w
 # Only print the command of run case and and the cases of all models will not be run:
     python3 xft.py  --ww 51  --d
 # Test the test case running env:
     python3 xft.py  --ww 51 --t --d
-# Run this cmd and output to the output.log: 
-    python3 xft.py  --ww 51  2>&1 | tee output.log
+# Run run weekly test cmd and output to the output.log: 
+    python3 xft.py  --ww 51 --weekly 2>&1 | tee output.log
+    or
+    python3 xft.py  --ww 51 --w 2>&1 | tee output.log
+# Run run bi-weekly test cmd and output to the output.log: 
+    python3 xft.py  --ww 51 --bi_weekly 2>&1 | tee output.log
+    or
+    python3 xft.py  --ww 51 --bw 2>&1 | tee output.log
+# Run run monthly test cmd and output to the output.log: 
+    python3 xft.py  --ww 51 --monthly 2>&1 | tee output.log
+    or
+    python3 xft.py  --ww 51 --m 2>&1 | tee output.log
 # Only parse the ouput log: 
     python3 xft.py --o
 """
@@ -304,6 +316,9 @@ def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--ww", type=str, default="40", help="work week")
+parser.add_argument("--weekly", "--w", action="store_true", help="weekly")
+parser.add_argument("--bi_weekly", "--bw", action="store_true", help="bi-weekly")
+parser.add_argument("--monthly", "--m", action="store_true", help="monthly")
 parser.add_argument("--root_dir", "--r", type=str, default=".", help="wsf code and exec script root_dir")
 parser.add_argument("--platform", type=str, default="spr", help="the platform of run case")
 parser.add_argument("--test", "--t", action="store_true", help="test the case or run env")
@@ -336,6 +351,40 @@ if not args.only_parse or (args.only_parse and args.dry_run) or (args.only_parse
     terraform_config_file = os.path.join(wsf_dir, "script/terraform/terraform-config.static.tf")
     replacetext(local_ip, local_user)
 
+    # Only test the running env on each server when args.test is True
+    if args.test:
+        if args.weekly:
+            args_info_case01 = { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [512], 
+                                'BATCH_SIZE': 1,'PRECISION': ['bf16_fp16','bf16'] }
+            args_info_case02 =  { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [512], 
+                                'BATCH_SIZE': 1, 'PRECISION': ['bf16'] }
+        elif args.bi_weekly:
+            args_info_case01 = { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [1024],
+                                'BATCH_SIZE': [1], 'PRECISION': ['bf16'] }
+            args_info_case02 = { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [1024],
+                                'BATCH_SIZE': [1], 'PRECISION': ['bf16_fp16'] }
+        elif args.monthly:
+            args_info_case01 = { 'INPUT_TOKENS': [512], 'OUTPUT_TOKENS': [512],
+                                'BATCH_SIZE': [1], 'PRECISION': ['int8','int4', 'nf4'] }
+            args_info_case02 = { 'INPUT_TOKENS': [2048], 'OUTPUT_TOKENS': [512], 
+                                'BATCH_SIZE': [1], 'PRECISION': ['bf16_int8','bf16_int4', 'w8a8'] }
+    else:
+        if args.weekly:
+            args_info_case01 = { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [512], 
+                                'BATCH_SIZE': 1,'PRECISION': ['bf16_fp16','bf16'] }
+            args_info_case02 =  { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [512], 
+                                'BATCH_SIZE': 32, 'PRECISION': ['bf16'] }
+        elif args.bi_weekly:
+            args_info_case01 = { 'INPUT_TOKENS': [512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048],
+                                'BATCH_SIZE': [1,4,8,16,32], 'PRECISION': ['bf16'] }
+            args_info_case02 = { 'INPUT_TOKENS': [512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048],
+                                'BATCH_SIZE': [1], 'PRECISION': ['bf16_fp16'] }
+        elif args.monthly:
+            args_info_case01 = { 'INPUT_TOKENS': [512], 'OUTPUT_TOKENS': [512],
+                                'BATCH_SIZE': [1,8], 'PRECISION': ['int8','int4', 'nf4'] }
+            args_info_case02 = { 'INPUT_TOKENS': [2048], 'OUTPUT_TOKENS': [512], 
+                                'BATCH_SIZE': [1,8], 'PRECISION': ['bf16_int8','bf16_int4', 'w8a8'] }
+
     if_docker = ""
     tags = ""
     # 10.165.174.148 172.17.29.24
@@ -356,11 +405,14 @@ if not args.only_parse or (args.only_parse and args.dry_run) or (args.only_parse
         tags = "ww{}_HBM_FLAT_SNC4".format(args.ww.upper())
         models = [ {'chatglm2-6b': '/opt/dataset/chatglm2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'}, 
                   {'llama-2-13b': '/opt/dataset/llama2-xft'} ]
+        args_info_case01.update({'XFT_FAKE_MODEL':1})
+        args_info_case02.update({'XFT_FAKE_MODEL':1})
     elif local_ip == "10.165.174.148":
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD".format(args.ww.upper())
         # models = [{'chatglm-6b': '/opt/dataset/chatglm-xft'}, {'baichuan-7b': '/opt/dataset/baichuan-xft'}]
         models = [{'chatglm-6b': '/opt/dataset/chatglm-xft'}]
+
     elif local_ip == "10.45.247.77":
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD_susan_2712".format(args.ww.upper())
@@ -368,16 +420,9 @@ if not args.only_parse or (args.only_parse and args.dry_run) or (args.only_parse
     else:
         print("Not support this IP")
         exit(1)
-
-    # Only test the running env on each server when args.test is True
-    if args.test:
-        args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
-                            'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
-                            'INPUT_TOKENS': [32,2048], 'OUTPUT_TOKENS': [32] }
-    else:
-        args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
-                            'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
-                            'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048] }
+    
+    if args.weekly:
+        models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'} ]
 
     workload_name = 'LLMs-xFT-Public'
 
@@ -385,6 +430,7 @@ if not args.only_parse or (args.only_parse and args.dry_run) or (args.only_parse
     for all_models in models:
         for model, model_path in all_models.items():
             run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)
+            run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case02)
 
 if (args.only_parse and args.dry_run) or (args.only_parse and args.test) or (args.only_parse and args.test and args.dry_run ) or args.only_parse:
     # parse output.log
