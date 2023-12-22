@@ -369,6 +369,7 @@ if not args.only_parse or (args.only_parse and args.dry_run) or (args.only_parse
             args_info_case02 = { 'INPUT_TOKENS': [2048], 'OUTPUT_TOKENS': [512], 
                                 'BATCH_SIZE': [1], 'PRECISION': ['bf16_int8','bf16_int4', 'w8a8'] }
     else:
+        ### args info
         if args.weekly:
             args_info_case01 = { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [512], 
                                 'BATCH_SIZE': 1,'PRECISION': ['bf16_fp16','bf16'] }
