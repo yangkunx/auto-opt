@@ -341,7 +341,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     # wsf_repo = "https://github.com/JunxiChhen/applications.benchmarking.benchmark.platform-hero-features"
     # wsf_repo = "https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features"
     wsf_repo = "https://github.com/yangkunx/applications.benchmarking.benchmark.platform-hero-features"
-    branch = "llm-xft"
+    branch = "llm-xft-ww52"
     print('\033[32mCurrent wsf_repo is: \033[0m{0}'.format(wsf_repo))
     print('\033[32mCurrent wsf_branch is: \033[0m{0}'.format(branch))
     target_repo_name = "wsf-dev-" + args.ww
@@ -381,10 +381,10 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     else:
         ### args info
         if args.weekly:
-            args_info_case01 = { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [512], 
+            args_info_case01 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 
                                 'BATCH_SIZE': 1,'PRECISION': ['bf16_fp16','bf16'] }
-            args_info_case02 =  { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [512], 
-                                'BATCH_SIZE': 32, 'PRECISION': ['bf16'] }
+            args_info_case02 =  { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 
+                                'BATCH_SIZE': 1, 'PRECISION': ['bf16'] }
             tag_extend="weekly"
         elif args.bi_weekly:
             args_info_case01 = { 'INPUT_TOKENS': [512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048],
@@ -422,8 +422,8 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
         tags = "ww{}_HBM_FLAT_SNC4_{}".format(args.ww.upper(), tag_extend)
         models = [ {'chatglm2-6b': '/opt/dataset/chatglm2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'}, 
                   {'llama-2-13b': '/opt/dataset/llama2-xft'} ]
-        args_info_case01.update({'XFT_FAKE_MODEL':1})
-        args_info_case02.update({'XFT_FAKE_MODEL':1})
+        # args_info_case01.update({'XFT_FAKE_MODEL':1})
+        # args_info_case02.update({'XFT_FAKE_MODEL':1})
     elif local_ip == "10.165.174.148":
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD_148_{}".format(args.ww.upper(), tag_extend)
