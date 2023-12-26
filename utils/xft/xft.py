@@ -445,12 +445,15 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     workload_name = 'LLMs-xFT-Public'
 
     # run model
+    sum = 0
     for all_models in models:
         for model, model_path in all_models.items():
             case01_loop = run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)
             case02_loop = run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case02)
-            
-    # print(case01_loop + case02_loop)
+            sum += case01_loop + case02_loop
+    
+    print('\033[32mModels_sum_case:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(sum))      
+    # print(sum)
 
 if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or 
     ( args.only_parse and args.weekly) or (args.only_parse and args.bi_weekly) or
