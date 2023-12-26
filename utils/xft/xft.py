@@ -289,9 +289,9 @@ def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_
     model_path_args = ' --set "MODEL_PATH={0}"'.format(model_path)
     run_args = './ctest.sh -R {0} --set "{1}" --set "MODEL_NAME={2}"{3}{4} '.format("pkm", base_args, model, model_path_args, sut_args)
     if dry_run:
+        print('\033[32mCmake命令:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
         print('\033[32mRun_model:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(model))
-        print('\033[32mcmake命令:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
-        print('\033[32msut_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
+        print('\033[32mSut_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
         print('\033[32mRun_case_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(run_args))
     else:
         build_name = "build_" + model
@@ -311,6 +311,10 @@ def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_
         #运行sut
         print('\033[32mRun_case_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(run_args))
         os.system(run_args)
+    
+    return loop_sum
+    
+    
 
 
 
@@ -381,10 +385,10 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     else:
         ### args info
         if args.weekly:
-            args_info_case01 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 
-                                'BATCH_SIZE': 1,'PRECISION': ['bf16_fp16','bf16'] }
-            args_info_case02 =  { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32], 
-                                'BATCH_SIZE': 1, 'PRECISION': ['bf16'] }
+            args_info_case01 = { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [512], 
+                                'BATCH_SIZE': 1,'PRECISION': ['bf16','bf16_fp16'] }
+            args_info_case02 =  { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [512], 
+                                'BATCH_SIZE': 32, 'PRECISION': ['bf16'] }
             tag_extend="weekly"
         elif args.bi_weekly:
             args_info_case01 = { 'INPUT_TOKENS': [512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048],
@@ -443,8 +447,10 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     # run model
     for all_models in models:
         for model, model_path in all_models.items():
-            run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)
-            run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case02)
+            case01_loop = run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)
+            case02_loop = run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case02)
+            
+    # print(case01_loop + case02_loop)
 
 if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or 
     ( args.only_parse and args.weekly) or (args.only_parse and args.bi_weekly) or
