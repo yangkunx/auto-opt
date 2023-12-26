@@ -401,7 +401,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
                                 'BATCH_SIZE': [1,8], 'PRECISION': ['int8','int4', 'nf4'] }
             args_info_case02 = { 'INPUT_TOKENS': [2048], 'OUTPUT_TOKENS': [512], 
                                 'BATCH_SIZE': [1,8], 'PRECISION': ['bf16_int8','bf16_int4', 'w8a8'] }
-            tag_extend="bi-monthly"
+            tag_extend="monthly"
         else:
             print("\033[1;31;40m Please specify parameter --weekly(--w) or --bi_weekly(--bw) or --monthly(--m) \033[0m")
             exit(1)
