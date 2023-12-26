@@ -281,17 +281,17 @@ def format_args(**kwargs):
     
 def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_run=False, **kwargs):
     cmake_cmd = "cmake -DREGISTRY={}:20666 -DPLATFORM=SPR -DRELEASE=latest -DACCEPT_LICENSE=ALL -DBACKEND=terraform -DBENCHMARK= \
-                    -DTERRAFORM_SUT=static -DTERRAFORM_OPTIONS='{} --svrinfo --intel_publish --tags={} \
-                    --owner=sf-post-silicon' -DTIMEOUT=60000,3600 ..".format(local_ip, if_docker,tags)
+    -DTERRAFORM_SUT=static -DTERRAFORM_OPTIONS='{} --svrinfo --intel_publish --tags={} \
+    --owner=sf-post-silicon' -DTIMEOUT=60000,3600 ..".format(local_ip, if_docker,tags)
     pre_run_args = './ctest.sh -R {0} --prepare-sut -V'.format("pkm")
     base_args, loop_sum= format_args(**kwargs)
     sut_args = ' --loop={0} --reuse-sut -V --continue'.format(loop_sum)
     model_path_args = ' --set "MODEL_PATH={0}"'.format(model_path)
     run_args = './ctest.sh -R {0} --set "{1}" --set "MODEL_NAME={2}"{3}{4} '.format("pkm", base_args, model, model_path_args, sut_args)
     if dry_run:
-        print('\033[32mCmake命令:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
-        print('\033[32mRun_model:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(model))
-        print('\033[32mSut_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
+        print('\033[32mCmake命令:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
+        print('\033[32mRun_model:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(model))
+        print('\033[32mSut_args:\033[0m      \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
         print('\033[32mRun_case_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(run_args))
     else:
         build_name = "build_" + model
@@ -450,9 +450,14 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
         for model, model_path in all_models.items():
             case01_loop = run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)
             case02_loop = run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case02)
-            sum += case01_loop + case02_loop
+            model_sum=case01_loop + case02_loop
+            sum += model_sum
+            print('\033[32m{}_sum_case:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format("args_info_case01", case01_loop))
+            print('\033[32m{}_sum_case:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format("args_info_case02", case02_loop))  
+            print('\033[32m{}_all_sum_case:\033[0m   \033[32m【\033[0m{}\033[32m】\033[0m'.format(model, model_sum))   
     
-    print('\033[32mModels_sum_case:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(sum))      
+    print('\033[32mAll_models_sum:\033[0m            \033[32m【\033[0m{}\033[32m】\033[0m'.format(len(models)))  
+    print('\033[32mAll_models_sum_case:\033[0m       \033[32m【\033[0m{}\033[32m】\033[0m'.format(sum))      
     # print(sum)
 
 if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or 
