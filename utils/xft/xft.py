@@ -343,9 +343,9 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     wsf_root_path = chdir(args.root_dir, "wsf_root_path")
     # git clone code
     # wsf_repo = "https://github.com/JunxiChhen/applications.benchmarking.benchmark.platform-hero-features"
-    # wsf_repo = "https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features"
-    wsf_repo = "https://github.com/yangkunx/applications.benchmarking.benchmark.platform-hero-features"
-    branch = "llm-xft-ww52"
+    wsf_repo = "https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features"
+    # wsf_repo = "https://github.com/yangkunx/applications.benchmarking.benchmark.platform-hero-features"
+    branch = "develop"
     print('\033[32mCurrent wsf_repo is: \033[0m{0}'.format(wsf_repo))
     print('\033[32mCurrent wsf_branch is: \033[0m{0}'.format(branch))
     target_repo_name = "wsf-dev-" + args.ww
