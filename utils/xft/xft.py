@@ -422,12 +422,9 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
         tags = "ww{}_HBM_FLAT_SNC4_{}".format(args.ww.upper(), tag_extend)
         models = [ {'chatglm2-6b': '/opt/dataset/chatglm2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'}, 
                   {'llama-2-13b': '/opt/dataset/llama2-xft'} ]
-        # args_info_case01.update({'XFT_FAKE_MODEL':1})
-        # args_info_case02.update({'XFT_FAKE_MODEL':1})
     elif local_ip == "10.165.174.148":
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD_148_{}".format(args.ww.upper(), tag_extend)
-        # models = [{'chatglm-6b': '/opt/dataset/chatglm-xft'}, {'baichuan-7b': '/opt/dataset/baichuan-xft'}]
         models = [{'chatglm-6b': '/opt/dataset/chatglm-xft'}]
 
     elif local_ip == "10.45.247.77":
