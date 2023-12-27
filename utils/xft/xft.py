@@ -6,9 +6,6 @@ import time
 import glob
 import subprocess
 import pandas as pd
-# from kubernetes import client, config
-# from kubernetes.client.rest import ApiException
-
 
 """
 # Directly execute the following command to run weekly test  and no logs will be output:
@@ -239,7 +236,7 @@ def get_local_ip_user():
 
 def format_args(**kwargs):
     """
-    格式化输出参数，以 key1=value1/key2=value2 输出
+    format output: key1=value1/key2=value2 
     """
     base_args= ''
     loop_sum = 1
@@ -265,7 +262,7 @@ def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_
     model_path_args = ' --set "MODEL_PATH={0}"'.format(model_path)
     run_args = './ctest.sh -R {0} --set "{1}" --set "MODEL_NAME={2}"{3}{4} '.format("pkm", base_args, model, model_path_args, sut_args)
     if dry_run:
-        print('\033[32mCmake命令:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
+        print('\033[32mCmake cmd:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
         print('\033[32mRun_model:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(model))
         print('\033[32mSut_args:\033[0m      \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
         print('\033[32mRun_case_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(run_args))
@@ -277,14 +274,14 @@ def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_
         create_dir_or_file(build_path)
         chdir(build_path, "ww_repo_model_build")
         #cmake
-        print('\033[32mcmake命令:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
+        print('\033[32mCmake cmd:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
         os.system(cmake_cmd)
         chdir(os.path.join(build_path, "workload", workload), "ww_build_workload_path")
         os.system("make")
-        #准备sut
+        #prepare sut
         print('\033[32msut_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
         os.system(pre_run_args)
-        #运行sut
+        #run sut
         print('\033[32mRun_case_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(run_args))
         os.system(run_args)
     
@@ -477,4 +474,4 @@ if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or
             df.to_excel(writer, index=False)
 
 end_time = time.time()
-print("耗时: {:.2f}秒".format(end_time - start_time))
+print("Total time spent: {:.2f}sec".format(end_time - start_time))
