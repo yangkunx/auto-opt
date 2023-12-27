@@ -4,6 +4,7 @@ import socket
 import re
 import time
 import glob
+import subprocess
 import pandas as pd
 # from kubernetes import client, config
 # from kubernetes.client.rest import ApiException
@@ -193,6 +194,23 @@ def parse_log(log_path, local_ip):
     # print(single_file_list)
     return single_file_list
 
+def checkout_origin(remote_url, branch_name):
+    remote_urls = subprocess.check_output("git remote -v | awk '{print $2}'", shell=True).decode("utf-8").split('\n')
+    remote_urls = list(set([x for x in remote_urls if x != "" ]))
+    # print(remote_urls)
+    if remote_url not in remote_urls:
+        print('\033[32mAdding the remote origin\033[0m')
+        subprocess.check_output("git remote add {} {}".format("new_origin", remote_url), shell=True)
+        print('\033[32mFetching the remote origin \033[0m')
+        subprocess.check_output("git fetch {} {}".format("new_origin", branch_name), shell=True, encoding='utf-8')
+        print('\033[32mCheckoutting the remote origin branch \033[0m')
+        subprocess.check_output("git checkout {}/{}".format("new_origin", branch_name), shell=True, encoding='utf-8')
+    else:
+        print('\033[32mCheckoutting the origin branch \033[0m')
+        subprocess.check_output("git checkout {}".format(branch_name), shell=True, encoding='utf-8')
+        print('\033[32mReset the HEAD\033[0m')
+        print(subprocess.check_output("git reset --hard", shell=True, encoding='utf-8'),end="")
+
 def chdir(path, text="wsf"):
     """
     check and change directory
@@ -314,9 +332,7 @@ def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_
     
     return loop_sum
     
-    
-
-
+   
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--ww", type=str, default="40", help="work week")
@@ -356,6 +372,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     if not os.path.exists(wsf_dir):
         os.system("git clone -b {} {} {}".format(branch, wsf_repo, wsf_dir))
     ww_repo_dir = chdir(wsf_dir, "ww_repo_dir")
+    checkout_origin(wsf_repo, branch)
     # os.system("git reset --hard")
     # os.system("git checkout {}".format(branch))
 
