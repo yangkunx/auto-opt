@@ -323,11 +323,16 @@ parser.add_argument("--ww", type=str, default="40", help="work week")
 parser.add_argument("--weekly", "--w", action="store_true", help="weekly")
 parser.add_argument("--bi_weekly", "--bw", action="store_true", help="bi-weekly")
 parser.add_argument("--monthly", "--m", action="store_true", help="monthly")
-parser.add_argument("--root_dir", "--r", type=str, default=".", help="wsf code and exec script root_dir")
-parser.add_argument("--platform", type=str, default="spr", help="the platform of run case")
+parser.add_argument("--root_dir", "--rd", type=str, default=".", help="wsf code and exec script root_dir")
+parser.add_argument("--platform","--p", type=str, default="spr", help="the platform of run case")
 parser.add_argument("--test", "--t", action="store_true", help="test the case or run env")
 parser.add_argument("--dry_run", "--d", action="store_true", help="dry run")
 parser.add_argument("--only_parse", "--o", action="store_true", help="Only parse the log")
+parser.add_argument("--branch", "--b", type=str, default="develop", help="Specify the branch of wsf repo")
+parser.add_argument("--repo", "--r", type=str, default="https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features", help="Specify wsf the repo")
+
+# wsf_repo = "https://github.com/JunxiChhen/applications.benchmarking.benchmark.platform-hero-features"
+# wsf_repo = "https://github.com/yangkunx/applications.benchmarking.benchmark.platform-hero-features"
 
 args = parser.parse_args()
 
@@ -342,10 +347,8 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     create_dir_or_file(args.root_dir)
     wsf_root_path = chdir(args.root_dir, "wsf_root_path")
     # git clone code
-    # wsf_repo = "https://github.com/JunxiChhen/applications.benchmarking.benchmark.platform-hero-features"
-    wsf_repo = "https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features"
-    # wsf_repo = "https://github.com/yangkunx/applications.benchmarking.benchmark.platform-hero-features"
-    branch = "develop"
+    wsf_repo = args.repo
+    branch = args.branch
     print('\033[32mCurrent wsf_repo is: \033[0m{0}'.format(wsf_repo))
     print('\033[32mCurrent wsf_branch is: \033[0m{0}'.format(branch))
     target_repo_name = "wsf-dev-" + args.ww
@@ -353,6 +356,8 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     if not os.path.exists(wsf_dir):
         os.system("git clone -b {} {} {}".format(branch, wsf_repo, wsf_dir))
     ww_repo_dir = chdir(wsf_dir, "ww_repo_dir")
+    # os.system("git reset --hard")
+    # os.system("git checkout {}".format(branch))
 
     # modify terraform config
     terraform_config_file = os.path.join(wsf_dir, "script/terraform/terraform-config.static.tf")
