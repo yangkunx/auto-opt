@@ -4,65 +4,36 @@ import socket
 import re
 import time
 import glob
+import subprocess
 import pandas as pd
 # from kubernetes import client, config
 # from kubernetes.client.rest import ApiException
 
 
 """
-# Directly execute the following command and no logs will be output:
-    python3 xft.py  --ww 51
+# Directly execute the following command to run weekly test  and no logs will be output:
+    python3 xft.py  --ww 51 --weekly
+    or
+    python3 xft.py  --ww 51 --w
 # Only print the command of run case and and the cases of all models will not be run:
     python3 xft.py  --ww 51  --d
 # Test the test case running env:
     python3 xft.py  --ww 51 --t --d
-# Run this cmd and output to the output.log: 
-    python3 xft.py  --ww 51  2>&1 | tee output.log
+# Run run weekly test cmd and output to the output.log: 
+    python3 xft.py  --ww 51 --weekly 2>&1 | tee output.log
+    or
+    python3 xft.py  --ww 51 --w 2>&1 | tee output.log
+# Run run bi-weekly test cmd and output to the output.log: 
+    python3 xft.py  --ww 51 --bi_weekly 2>&1 | tee output.log
+    or
+    python3 xft.py  --ww 51 --bw 2>&1 | tee output.log
+# Run run monthly test cmd and output to the output.log: 
+    python3 xft.py  --ww 51 --monthly 2>&1 | tee output.log
+    or
+    python3 xft.py  --ww 51 --m 2>&1 | tee output.log
 # Only parse the ouput log: 
     python3 xft.py --o
 """
-
-### clean unused pod and job
-# def clean_job_and_pod(clean_name):
-#     # Configs can be set in Configuration class directly or using helper utility
-#     config.load_kube_config()
-
-#     v1 = client.BatchV1Api()
-#     ret_all_job = v1.list_job_for_all_namespaces(watch=False)
-#     # pprint(ret)
-#     for item in ret_all_job.items:
-#         # pprint(i.metadata)
-#         name = item.metadata.name
-#         namespace = item.metadata.namespace
-#         # "llms-xft-public"
-#         if re.search(clean_name, name):
-#             # print(item.metadata.name)
-#             # print(i.metadata.namespace)
-#             print(
-#             "%s\t%s\t%s" %
-#             (item.metadata.namespace,
-#                 item.metadata.name))
-#             try:
-#                 v1.delete_namespaced_job(name, namespace)
-#             except ApiException as e:
-#                 print("Exception when calling BatchV1Api->delete_namespaced_job: %s\n" % e)
-        
-#     v1 = client.CoreV1Api()
-#     ret_all_pod = v1.list_pod_for_all_namespaces(watch=False)
-#     for item in ret_all_pod.items:
-        
-#         name = item.metadata.name
-#         ns = item.metadata.namespace
-#         if re.search(clean_name, name):
-#             print(
-#             "%s\t%s\t%s" %
-#             (item.status.pod_ip,
-#                 item.metadata.namespace,
-#                 item.metadata.name))
-#             try:
-#                 v1.delete_namespaced_pod(name, namespace)
-#             except ApiException as e:
-#                 print("Exception when calling CoreV1Api->delete_namespaced_pod: %s\n" % e)
 
 def parse_log(log_path, local_ip):
     """
@@ -177,10 +148,26 @@ def parse_log(log_path, local_ip):
                 print('zip_link: {0}'.format(zip_link))
                 print('local_ip: {0}'.format(collect_ip))
 
-                
-    
+
     # print(single_file_list)
     return single_file_list
+
+def checkout_origin(remote_url, branch_name):
+    remote_urls = subprocess.check_output("git remote -v | awk '{print $2}'", shell=True).decode("utf-8").split('\n')
+    remote_urls = list(set([x for x in remote_urls if x != "" ]))
+    # print(remote_urls)
+    if remote_url not in remote_urls:
+        print('\033[32mAdding the remote origin\033[0m')
+        subprocess.check_output("git remote add {} {}".format("new_origin", remote_url), shell=True)
+        print('\033[32mFetching the remote origin \033[0m')
+        subprocess.check_output("git fetch {} {}".format("new_origin", branch_name), shell=True, encoding='utf-8')
+        print('\033[32mCheckoutting the remote origin branch \033[0m')
+        subprocess.check_output("git checkout {}/{}".format("new_origin", branch_name), shell=True, encoding='utf-8')
+    else:
+        print('\033[32mCheckoutting the origin branch \033[0m')
+        subprocess.check_output("git checkout {}".format(branch_name), shell=True, encoding='utf-8')
+        print('\033[32mReset the HEAD\033[0m')
+        print(subprocess.check_output("git reset --hard", shell=True, encoding='utf-8'),end="")
 
 def chdir(path, text="wsf"):
     """
@@ -269,46 +256,57 @@ def format_args(**kwargs):
     return base_args, loop_sum
     
 def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_run=False, **kwargs):
-    build_name = "build_" + model
-    if "/" in model:
-        build_name = "build_" + model.replace("/","_")
-    build_path = os.path.join(ww_repo_dir, build_name)
-    create_dir_or_file(build_path)
-    chdir(build_path, "ww_repo_model_build")
-    #cmake
     cmake_cmd = "cmake -DREGISTRY={}:20666 -DPLATFORM=SPR -DRELEASE=latest -DACCEPT_LICENSE=ALL -DBACKEND=terraform -DBENCHMARK= \
-                -DTERRAFORM_SUT=static -DTERRAFORM_OPTIONS='{} --svrinfo --intel_publish --tags={} \
-                --owner=sf-post-silicon' -DTIMEOUT=60000,3600 ..".format(local_ip, if_docker,tags)
-    print('\033[32mcmake命令:\033[0m {}'.format(cmake_cmd))
-    os.system(cmake_cmd)
-    chdir(os.path.join(build_path, "workload", workload), "ww_build_workload_path")
-    if not dry_run:
-        os.system("make")
-    #准备sut
-    run_args = './ctest.sh -R {0} --prepare-sut -V'.format("pkm")
-    print('\033[32msut_args:\033[0m {0}'.format(run_args))
-    if not dry_run:
-        os.system(run_args)
-    #运行sut
+    -DTERRAFORM_SUT=static -DTERRAFORM_OPTIONS='{} --svrinfo --intel_publish --tags={} \
+    --owner=sf-post-silicon' -DTIMEOUT=60000,3600 ..".format(local_ip, if_docker,tags)
+    pre_run_args = './ctest.sh -R {0} --prepare-sut -V'.format("pkm")
     base_args, loop_sum= format_args(**kwargs)
     sut_args = ' --loop={0} --reuse-sut -V --continue'.format(loop_sum)
-    model_path_args = ""
-    if local_ip == "10.165.174.148" or local_ip == "172.17.29.24":
-        model_path_args = ' --set "MODEL_PATH={0}"'.format(model_path)
+    model_path_args = ' --set "MODEL_PATH={0}"'.format(model_path)
     run_args = './ctest.sh -R {0} --set "{1}" --set "MODEL_NAME={2}"{3}{4} '.format("pkm", base_args, model, model_path_args, sut_args)
-    print('\033[32mTest_case_args:\033[0m {0}'.format(run_args))
-    if not dry_run:
+    if dry_run:
+        print('\033[32mCmake命令:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
+        print('\033[32mRun_model:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(model))
+        print('\033[32mSut_args:\033[0m      \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
+        print('\033[32mRun_case_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(run_args))
+    else:
+        build_name = "build_" + model
+        if "/" in model:
+            build_name = "build_" + model.replace("/","_")
+        build_path = os.path.join(ww_repo_dir, build_name)
+        create_dir_or_file(build_path)
+        chdir(build_path, "ww_repo_model_build")
+        #cmake
+        print('\033[32mcmake命令:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
+        os.system(cmake_cmd)
+        chdir(os.path.join(build_path, "workload", workload), "ww_build_workload_path")
+        os.system("make")
+        #准备sut
+        print('\033[32msut_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
+        os.system(pre_run_args)
+        #运行sut
+        print('\033[32mRun_case_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(run_args))
         os.system(run_args)
-
-
+    
+    return loop_sum
+    
+   
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--ww", type=str, default="40", help="work week")
-parser.add_argument("--root_dir", "--r", type=str, default=".", help="wsf code and exec script root_dir")
-parser.add_argument("--platform", type=str, default="spr", help="the platform of run case")
+parser.add_argument("--weekly", "--w", action="store_true", help="weekly")
+parser.add_argument("--bi_weekly", "--bw", action="store_true", help="bi-weekly")
+parser.add_argument("--monthly", "--m", action="store_true", help="monthly")
+parser.add_argument("--root_dir", "--rd", type=str, default=".", help="wsf code and exec script root_dir")
+parser.add_argument("--platform","--p", type=str, default="spr", help="the platform of run case")
 parser.add_argument("--test", "--t", action="store_true", help="test the case or run env")
 parser.add_argument("--dry_run", "--d", action="store_true", help="dry run")
 parser.add_argument("--only_parse", "--o", action="store_true", help="Only parse the log")
+parser.add_argument("--branch", "--b", type=str, default="develop", help="Specify the branch of wsf repo")
+parser.add_argument("--repo", "--r", type=str, default="https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features", help="Specify wsf the repo")
+
+# wsf_repo = "https://github.com/JunxiChhen/applications.benchmarking.benchmark.platform-hero-features"
+# wsf_repo = "https://github.com/yangkunx/applications.benchmarking.benchmark.platform-hero-features"
 
 args = parser.parse_args()
 
@@ -316,14 +314,15 @@ args = parser.parse_args()
 local_ip, local_user= get_local_ip_user()
 
 start_time = time.time()
-if not args.only_parse or (args.only_parse and args.dry_run) or (args.only_parse and args.test) or (args.only_parse and args.test and args.dry_run ):
+if ( not args.only_parse or (args.only_parse and args.dry_run) or 
+   ( args.only_parse and args.weekly) or (args.only_parse and args.bi_weekly) or
+   ( args.only_parse and args.monthly) or ( args.only_parse and args.test) or 
+   (args.only_parse and args.test and args.dry_run )):
     create_dir_or_file(args.root_dir)
     wsf_root_path = chdir(args.root_dir, "wsf_root_path")
     # git clone code
-    # wsf_repo = "https://github.com/JunxiChhen/applications.benchmarking.benchmark.platform-hero-features"
-    # wsf_repo = "https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features"
-    wsf_repo = "https://github.com/yangkunx/applications.benchmarking.benchmark.platform-hero-features"
-    branch = "llm-xft"
+    wsf_repo = args.repo
+    branch = args.branch
     print('\033[32mCurrent wsf_repo is: \033[0m{0}'.format(wsf_repo))
     print('\033[32mCurrent wsf_branch is: \033[0m{0}'.format(branch))
     target_repo_name = "wsf-dev-" + args.ww
@@ -331,62 +330,120 @@ if not args.only_parse or (args.only_parse and args.dry_run) or (args.only_parse
     if not os.path.exists(wsf_dir):
         os.system("git clone -b {} {} {}".format(branch, wsf_repo, wsf_dir))
     ww_repo_dir = chdir(wsf_dir, "ww_repo_dir")
+    checkout_origin(wsf_repo, branch)
+    # os.system("git reset --hard")
+    # os.system("git checkout {}".format(branch))
 
     # modify terraform config
     terraform_config_file = os.path.join(wsf_dir, "script/terraform/terraform-config.static.tf")
     replacetext(local_ip, local_user)
+
+    # Only test the running env on each server when args.test is True
+    tag_extend=""
+    if args.test:
+        if args.weekly:
+            args_info_case01 = { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [512], 
+                                'BATCH_SIZE': 1,'PRECISION': ['bf16_fp16','bf16'] }
+            args_info_case02 =  { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [512], 
+                                'BATCH_SIZE': 1, 'PRECISION': ['bf16'] }
+            tag_extend="test_weekly"
+        elif args.bi_weekly:
+            args_info_case01 = { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [1024],
+                                'BATCH_SIZE': [1], 'PRECISION': ['bf16'] }
+            args_info_case02 = { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [1024],
+                                'BATCH_SIZE': [1], 'PRECISION': ['bf16_fp16'] }
+            tag_extend="test_bi-weekly"
+        elif args.monthly:
+            args_info_case01 = { 'INPUT_TOKENS': [512], 'OUTPUT_TOKENS': [512],
+                                'BATCH_SIZE': [1], 'PRECISION': ['int8','int4', 'nf4'] }
+            args_info_case02 = { 'INPUT_TOKENS': [2048], 'OUTPUT_TOKENS': [512], 
+                                'BATCH_SIZE': [1], 'PRECISION': ['bf16_int8','bf16_int4', 'w8a8'] }
+            tag_extend="test_monthly"
+        else:
+            print("\033[1;31;40m Please specify parameter --weekly(--w) or --bi_weekly(--bw) or --monthly(--m) \033[0m")
+            exit(1)
+    else:
+        ### args info
+        if args.weekly:
+            args_info_case01 = { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [512], 
+                                'BATCH_SIZE': 1,'PRECISION': ['bf16','bf16_fp16'] }
+            args_info_case02 =  { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [512], 
+                                'BATCH_SIZE': 32, 'PRECISION': ['bf16'] }
+            tag_extend="weekly"
+        elif args.bi_weekly:
+            args_info_case01 = { 'INPUT_TOKENS': [512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048],
+                                'BATCH_SIZE': [1,4,8,16,32], 'PRECISION': ['bf16'] }
+            args_info_case02 = { 'INPUT_TOKENS': [512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048],
+                                'BATCH_SIZE': [1], 'PRECISION': ['bf16_fp16'] }
+            tag_extend="bi-weekly"
+        elif args.monthly:
+            args_info_case01 = { 'INPUT_TOKENS': [512], 'OUTPUT_TOKENS': [512],
+                                'BATCH_SIZE': [1,8], 'PRECISION': ['int8','int4', 'nf4'] }
+            args_info_case02 = { 'INPUT_TOKENS': [2048], 'OUTPUT_TOKENS': [512], 
+                                'BATCH_SIZE': [1,8], 'PRECISION': ['bf16_int8','bf16_int4', 'w8a8'] }
+            tag_extend="monthly"
+        else:
+            print("\033[1;31;40m Please specify parameter --weekly(--w) or --bi_weekly(--bw) or --monthly(--m) \033[0m")
+            exit(1)
 
     if_docker = ""
     tags = ""
     # 10.165.174.148 172.17.29.24
     if local_ip == "172.17.29.24":
         if_docker = "--docker"
-        tags = "ww{}_SPR_QUAD".format(args.ww.upper())
+        tags = "ww{}_SPR_QUAD_{}".format(args.ww.upper(), tag_extend)
         models = [{'llama-2-13b': '/mnt/nfs_share/xft/llama2-xft'}, {'baichuan2-13b': '/mnt/nfs_share/xft/baichuan2-xft'}]
     elif local_ip == "192.168.14.61":
         if_docker = "--docker"
-        tags = "ww{}_SPR_QUAD".format(args.ww.upper())
+        tags = "ww{}_SPR_QUAD_{}".format(args.ww.upper(), tag_extend)
         models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'chatglm2-6b': '/opt/dataset/chatglm2-xft'},
                    {'baichuan2-7b': '/opt/dataset/baichuan2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'} ]
     elif local_ip == "192.168.14.121":
-        tags = "ww{}_HBM_FLAT_SNC4".format(args.ww.upper())
+        tags = "ww{}_HBM_FLAT_SNC4_{}".format(args.ww.upper(), tag_extend)
         models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'baichuan2-7b': '/opt/dataset/baichuan2-xft'}, 
                   {'baichuan2-13b': '/opt/dataset/baichuan2-xft'} ]
     elif local_ip == "192.168.14.119":
-        tags = "ww{}_HBM_FLAT_SNC4".format(args.ww.upper())
+        tags = "ww{}_HBM_FLAT_SNC4_{}".format(args.ww.upper(), tag_extend)
         models = [ {'chatglm2-6b': '/opt/dataset/chatglm2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'}, 
                   {'llama-2-13b': '/opt/dataset/llama2-xft'} ]
     elif local_ip == "10.165.174.148":
         if_docker = "--docker"
-        tags = "ww{}_SPR_QUAD".format(args.ww.upper())
-        # models = [{'chatglm-6b': '/opt/dataset/chatglm-xft'}, {'baichuan-7b': '/opt/dataset/baichuan-xft'}]
+        tags = "ww{}_SPR_QUAD_148_{}".format(args.ww.upper(), tag_extend)
         models = [{'chatglm-6b': '/opt/dataset/chatglm-xft'}]
+
     elif local_ip == "10.45.247.77":
         if_docker = "--docker"
-        tags = "ww{}_SPR_QUAD_susan_2712".format(args.ww.upper())
+        tags = "ww{}_SPR_QUAD_{}_susan_2712".format(args.ww.upper(), tag_extend)
         models = [{'chatglm2-6b': '/opt/dataset/chatglm2-xft'}]
     else:
         print("Not support this IP")
         exit(1)
-
-    # Only test the running env on each server when args.test is True
-    if args.test:
-        args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
-                            'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
-                            'INPUT_TOKENS': [32,2048], 'OUTPUT_TOKENS': [32] }
-    else:
-        args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
-                            'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
-                            'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048] }
+    
+    if args.weekly:
+        models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'} ]
 
     workload_name = 'LLMs-xFT-Public'
 
     # run model
+    sum = 0
     for all_models in models:
         for model, model_path in all_models.items():
-            run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)
+            case01_loop = run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)
+            case02_loop = run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case02)
+            model_sum=case01_loop + case02_loop
+            sum += model_sum
+            print('\033[32m{}_sum_case:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format("args_info_case01", case01_loop))
+            print('\033[32m{}_sum_case:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format("args_info_case02", case02_loop))  
+            print('\033[32m{}_all_sum_case:\033[0m   \033[32m【\033[0m{}\033[32m】\033[0m'.format(model, model_sum))   
+    
+    print('\033[32mAll_models_sum:\033[0m            \033[32m【\033[0m{}\033[32m】\033[0m'.format(len(models)))  
+    print('\033[32mAll_models_sum_case:\033[0m       \033[32m【\033[0m{}\033[32m】\033[0m'.format(sum))      
+    # print(sum)
 
-if (args.only_parse and args.dry_run) or (args.only_parse and args.test) or (args.only_parse and args.test and args.dry_run ) or args.only_parse:
+if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or 
+    ( args.only_parse and args.weekly) or (args.only_parse and args.bi_weekly) or
+    ( args.only_parse and args.monthly) or 
+    (args.only_parse and args.test and args.dry_run ) or args.only_parse ):
     # parse output.log
     script_exec_path = os.path.realpath(os.path.dirname(__file__))
     file_list = glob.glob(script_exec_path + "/output*.log")
