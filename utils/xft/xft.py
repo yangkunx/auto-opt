@@ -160,9 +160,11 @@ def checkout_origin(remote_url, branch_name):
         subprocess.check_output("git fetch {} {}".format("new_origin", branch_name), shell=True, encoding='utf-8')
         print('\033[32mCheckoutting the remote origin branch \033[0m')
         subprocess.check_output("git checkout {}/{}".format("new_origin", branch_name), shell=True, encoding='utf-8')
+        subprocess.check_output("git pull", shell=True, encoding='utf-8')
     else:
         print('\033[32mCheckoutting the origin branch \033[0m')
         subprocess.check_output("git checkout {}".format(branch_name), shell=True, encoding='utf-8')
+        subprocess.check_output("git pull", shell=True, encoding='utf-8')
         print('\033[32mReset the HEAD\033[0m')
         print(subprocess.check_output("git reset --hard", shell=True, encoding='utf-8'),end="")
 
@@ -339,21 +341,21 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     tag_extend=""
     if args.test:
         if args.weekly:
-            args_info_case01 = { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [512], 
+            args_info_case01 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [512], 
                                 'BATCH_SIZE': 1,'PRECISION': ['bf16_fp16','bf16'] }
             args_info_case02 =  { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [512], 
                                 'BATCH_SIZE': 1, 'PRECISION': ['bf16'] }
             tag_extend="test_weekly"
         elif args.bi_weekly:
-            args_info_case01 = { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [1024],
+            args_info_case01 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [1024],
                                 'BATCH_SIZE': [1], 'PRECISION': ['bf16'] }
-            args_info_case02 = { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [1024],
+            args_info_case02 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [1024],
                                 'BATCH_SIZE': [1], 'PRECISION': ['bf16_fp16'] }
             tag_extend="test_bi-weekly"
         elif args.monthly:
-            args_info_case01 = { 'INPUT_TOKENS': [512], 'OUTPUT_TOKENS': [512],
+            args_info_case01 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [512],
                                 'BATCH_SIZE': [1], 'PRECISION': ['int8','int4', 'nf4'] }
-            args_info_case02 = { 'INPUT_TOKENS': [2048], 'OUTPUT_TOKENS': [512], 
+            args_info_case02 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [512], 
                                 'BATCH_SIZE': [1], 'PRECISION': ['bf16_int8','bf16_int4', 'w8a8'] }
             tag_extend="test_monthly"
         else:
