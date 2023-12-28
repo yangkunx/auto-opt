@@ -5,7 +5,9 @@ import re
 import time
 import glob
 import subprocess
+import paramiko
 import pandas as pd
+from paramiko import BadHostKeyException, AuthenticationException, SSHException
 
 """
 # Directly execute the following command to run weekly test  and no logs will be output:
@@ -32,6 +34,92 @@ import pandas as pd
     python3 xft.py --o
 """
 
+class Env():
+    
+    def __init__(self, ssh_user, ssh_pwd, ssh_ip):
+        self.ssh_user = ssh_user
+        self.ssh_pwd = ssh_pwd
+        self.ssh_ip = ssh_ip
+        self.ssh_client = paramiko.client.SSHClient()
+
+    def check_ssh_connect(self):
+        self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        try:
+            self.ssh_client.connect(self.ssh_ip, username=self.ssh_user)
+            print('\033[32mSSH connect successed, the setting is OK\033[0m')
+            return True
+        except (BadHostKeyException, AuthenticationException, 
+                SSHException) as e:
+            print(e)
+        self.ssh_client.close()
+        return False
+    
+    def set_ssh_env(self):
+        self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        try:
+            self.ssh_client.connect(self.ssh_ip, username=self.ssh_user, password=self.ssh_pwd)
+            filename='/home/yangkun/.ssh/id_rsa.pub'
+            ftp_client=self.ssh_client.open_sftp()
+            ftp_client.put(filename,"/home/yangkun/.ssh/authorized_keys")
+            print('\033[32mSSH Passwordless Login set up successed \033[0m')
+            return True
+        except (BadHostKeyException, AuthenticationException, 
+                SSHException) as e:
+            print(e)
+        ftp_client.close()
+        self.ssh_client.close()
+        return False
+    
+    def check_docker_env(self):
+        check_docker_install = os.system("docker -v 2>&1 >/dev/null")
+        # print(check_docker_install)
+        if check_docker_install == 0:
+            check_docker_install=True
+        else:
+            print("\033[1;31;40mDocker not install, please install docker at first\033[0m")
+            check_docker_install=False
+            exit(1)
+        check_docker_registy = subprocess.check_output("docker ps | grep 'registry' | grep ':20666'", shell=True, encoding='utf-8').split("\n")
+        check_docker_registy = list(set([x for x in check_docker_registy if x != "" ]))
+        # print(len(check_docker_registy))
+        if len(check_docker_registy) == 1:
+            check_docker_registy=True
+        else:
+            print("\033[1;31;40mThe contanier of registry_v2 is not deployed, please deploy it at first\033[0m")
+            check_docker_registy=False
+            exit(1)
+        
+        if check_docker_install and check_docker_registy:
+            print('\033[32mThe docker env is OK\033[0m')
+        
+        return check_docker_install and check_docker_registy
+    
+    def check_k8s_env(self):
+        check_kubectl_install = os.system("kubectl cluster-info 2>&1 >/dev/null")
+        if check_kubectl_install == 0:
+            check_kubectl_install=True
+        else:
+            print("\033[1;31;40mkubectl not install, please install kubectl at first\033[0m")
+            check_kubectl_install=False
+            exit(1)
+        
+        check_k8s_cluster = subprocess.check_output("kubectl cluster-info", shell=True, encoding='utf-8').split("\n")
+        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+        check_k8s_cluster = [ansi_escape.sub('', text) for text in check_k8s_cluster]
+        check_k8s_cluster = list(set([x for x in check_k8s_cluster if x != "" ]))
+        cluster_running_text = "Kubernetes control plane is running at https://{}:6443".format(self.ssh_ip)
+        if cluster_running_text in check_k8s_cluster:
+            check_k8s_cluster=True
+        else:
+            print("\033[1;31;40mThe cluster of k8s is not ready, please deploy it at first\033[0m")
+            check_k8s_cluster=False
+            exit(1)
+        
+        if check_kubectl_install and check_k8s_cluster:
+            print('\033[32mThe k8s env is OK\033[0m')
+        
+        return check_kubectl_install and check_k8s_cluster
+
 def parse_log(log_path, local_ip):
     """
     parse log
@@ -54,6 +142,8 @@ def parse_log(log_path, local_ip):
                 p90_latency=0
                 throughput=0
                 dashboard_link=""
+                BASE_MODEL_NAME=""
+                precision=""
             if re.search("BASE_MODEL_NAME:", line):
                 BASE_MODEL_NAME=re.findall('BASE_MODEL_NAME:.*', line)[0].split(":")[1]
             if re.search("\d\:\sPRECISION=", line):
@@ -312,31 +402,20 @@ args = parser.parse_args()
 #get local ip
 local_ip, local_user= get_local_ip_user()
 
+run_env = Env(local_user, "111111", local_ip)
 start_time = time.time()
 if ( not args.only_parse or (args.only_parse and args.dry_run) or 
    ( args.only_parse and args.weekly) or (args.only_parse and args.bi_weekly) or
    ( args.only_parse and args.monthly) or ( args.only_parse and args.test) or 
    (args.only_parse and args.test and args.dry_run )):
-    create_dir_or_file(args.root_dir)
-    wsf_root_path = chdir(args.root_dir, "wsf_root_path")
-    # git clone code
-    wsf_repo = args.repo
-    branch = args.branch
-    print('\033[32mCurrent wsf_repo is: \033[0m{0}'.format(wsf_repo))
-    print('\033[32mCurrent wsf_branch is: \033[0m{0}'.format(branch))
-    target_repo_name = "wsf-dev-" + args.ww
-    wsf_dir = os.path.join(wsf_root_path, target_repo_name)
-    if not os.path.exists(wsf_dir):
-        os.system("git clone -b {} {} {}".format(branch, wsf_repo, wsf_dir))
-    ww_repo_dir = chdir(wsf_dir, "ww_repo_dir")
-    checkout_origin(wsf_repo, branch)
-    # os.system("git reset --hard")
-    # os.system("git checkout {}".format(branch))
-
-    # modify terraform config
-    terraform_config_file = os.path.join(wsf_dir, "script/terraform/terraform-config.static.tf")
-    replacetext(local_ip, local_user)
-
+    
+    # check ssh
+    check_ssh_con = run_env.check_ssh_connect()
+    
+    # setting the ssh private key
+    if not check_ssh_con:
+        print(run_env.set_ssh_env())
+    
     # Only test the running env on each server when args.test is True
     tag_extend=""
     if args.test:
@@ -387,25 +466,34 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
 
     if_docker = ""
     tags = ""
-    # 10.165.174.148 172.17.29.24
     if local_ip == "172.17.29.24":
+        # check docker env 
+        run_env.check_docker_env()
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD_{}".format(args.ww.upper(), tag_extend)
         models = [{'llama-2-13b': '/mnt/nfs_share/xft/llama2-xft'}, {'baichuan2-13b': '/mnt/nfs_share/xft/baichuan2-xft'}]
     elif local_ip == "192.168.14.61":
+        # check docker env 
+        run_env.check_docker_env()
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD_{}".format(args.ww.upper(), tag_extend)
         models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'chatglm2-6b': '/opt/dataset/chatglm2-xft'},
                    {'baichuan2-7b': '/opt/dataset/baichuan2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'} ]
     elif local_ip == "192.168.14.121":
+        # check k8s env 
+        run_env.check_k8s_env()
         tags = "ww{}_HBM_FLAT_SNC4_{}".format(args.ww.upper(), tag_extend)
         models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'baichuan2-7b': '/opt/dataset/baichuan2-xft'}, 
                   {'baichuan2-13b': '/opt/dataset/baichuan2-xft'} ]
     elif local_ip == "192.168.14.119":
+        # check k8s env
+        run_env.check_k8s_env()
         tags = "ww{}_HBM_FLAT_SNC4_{}".format(args.ww.upper(), tag_extend)
         models = [ {'chatglm2-6b': '/opt/dataset/chatglm2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'}, 
                   {'llama-2-13b': '/opt/dataset/llama2-xft'} ]
     elif local_ip == "10.165.174.148":
+        # check k8s env
+        run_env.check_docker_env()
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD_148_{}".format(args.ww.upper(), tag_extend)
         models = [{'chatglm-6b': '/opt/dataset/chatglm-xft'}]
@@ -422,6 +510,26 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
         models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'} ]
 
     workload_name = 'LLMs-xFT-Public'
+    
+    create_dir_or_file(args.root_dir)
+    wsf_root_path = chdir(args.root_dir, "wsf_root_path")
+    # git clone code
+    wsf_repo = args.repo
+    branch = args.branch
+    print('\033[32mCurrent wsf_repo is: \033[0m{0}'.format(wsf_repo))
+    print('\033[32mCurrent wsf_branch is: \033[0m{0}'.format(branch))
+    target_repo_name = "wsf-dev-" + args.ww
+    wsf_dir = os.path.join(wsf_root_path, target_repo_name)
+    if not os.path.exists(wsf_dir):
+        os.system("git clone -b {} {} {}".format(branch, wsf_repo, wsf_dir))
+    ww_repo_dir = chdir(wsf_dir, "ww_repo_dir")
+    checkout_origin(wsf_repo, branch)
+    # os.system("git reset --hard")
+    # os.system("git checkout {}".format(branch))
+
+    # modify terraform config
+    terraform_config_file = os.path.join(wsf_dir, "script/terraform/terraform-config.static.tf")
+    replacetext(local_ip, local_user)
 
     # run model
     sum = 0
