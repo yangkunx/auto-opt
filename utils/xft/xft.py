@@ -386,6 +386,7 @@ parser.add_argument("--ww", type=str, default="40", help="work week")
 parser.add_argument("--weekly", "--w", action="store_true", help="weekly")
 parser.add_argument("--bi_weekly", "--bw", action="store_true", help="bi-weekly")
 parser.add_argument("--monthly", "--m", action="store_true", help="monthly")
+parser.add_argument("--normal", "--n", action="store_true", help="normal")
 parser.add_argument("--root_dir", "--rd", type=str, default=".", help="wsf code and exec script root_dir")
 parser.add_argument("--platform","--p", type=str, default="spr", help="the platform of run case")
 parser.add_argument("--test", "--t", action="store_true", help="test the case or run env")
@@ -407,7 +408,7 @@ start_time = time.time()
 if ( not args.only_parse or (args.only_parse and args.dry_run) or 
    ( args.only_parse and args.weekly) or (args.only_parse and args.bi_weekly) or
    ( args.only_parse and args.monthly) or ( args.only_parse and args.test) or 
-   (args.only_parse and args.test and args.dry_run )):
+   ( args.only_parse and args.normal) or (args.only_parse and args.test and args.dry_run )):
     
     # check ssh
     check_ssh_con = run_env.check_ssh_connect()
@@ -418,6 +419,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     
     # Only test the running env on each server when args.test is True
     tag_extend=""
+    args_info_cases = []
     if args.test:
         if args.weekly:
             args_info_case01 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [512], 
@@ -437,8 +439,14 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
             args_info_case02 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [512], 
                                 'BATCH_SIZE': [1], 'PRECISION': ['bf16_int8','bf16_int4', 'w8a8'] }
             tag_extend="test_monthly"
+        elif args.normal:
+            args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
+                            'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
+                            'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32] }
+            args_info_case02 = { }
+            tag_extend="test_normal"
         else:
-            print("\033[1;31;40m Please specify parameter --weekly(--w) or --bi_weekly(--bw) or --monthly(--m) \033[0m")
+            print("\033[1;31;40m Please specify parameter --weekly(--w) or --bi_weekly(--bw) or --monthly(--m) or --normal(--n)\033[0m")
             exit(1)
     else:
         ### args info
@@ -460,10 +468,19 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
             args_info_case02 = { 'INPUT_TOKENS': [2048], 'OUTPUT_TOKENS': [512], 
                                 'BATCH_SIZE': [1,8], 'PRECISION': ['bf16_int8','bf16_int4', 'w8a8'] }
             tag_extend="monthly"
+        elif args.normal:
+            args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
+                            'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
+                            'INPUT_TOKENS': [32,512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048] }
+            args_info_case02 = { }
+            tag_extend="test_normal"
         else:
-            print("\033[1;31;40m Please specify parameter --weekly(--w) or --bi_weekly(--bw) or --monthly(--m) \033[0m")
+            print("\033[1;31;40m Please specify parameter --weekly(--w) or --bi_weekly(--bw) or --monthly(--m) or --normal(--n)\033[0m")
             exit(1)
-
+    
+    args_info_cases.extend([args_info_case01, args_info_case02])
+    args_info_cases = [ case for case in args_info_cases if len(case) !=0 ]
+    
     if_docker = ""
     tags = ""
     if local_ip == "172.17.29.24":
@@ -496,7 +513,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
         run_env.check_docker_env()
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD_148_{}".format(args.ww.upper(), tag_extend)
-        models = [{'chatglm-6b': '/opt/dataset/chatglm-xft'}]
+        models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'} ]
 
     elif local_ip == "10.45.247.77":
         if_docker = "--docker"
@@ -513,6 +530,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     
     create_dir_or_file(args.root_dir)
     wsf_root_path = chdir(args.root_dir, "wsf_root_path")
+    
     # git clone code
     wsf_repo = args.repo
     branch = args.branch
@@ -524,32 +542,33 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
         os.system("git clone -b {} {} {}".format(branch, wsf_repo, wsf_dir))
     ww_repo_dir = chdir(wsf_dir, "ww_repo_dir")
     checkout_origin(wsf_repo, branch)
-    # os.system("git reset --hard")
-    # os.system("git checkout {}".format(branch))
 
     # modify terraform config
     terraform_config_file = os.path.join(wsf_dir, "script/terraform/terraform-config.static.tf")
     replacetext(local_ip, local_user)
 
     # run model
-    sum = 0
-    for all_models in models:
+    all_model_case_sum = 0
+    for all_models in models: # 2
+        case_num = 1
+        model_case_sum = 0
         for model, model_path in all_models.items():
-            case01_loop = run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case01)
-            case02_loop = run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info_case02)
-            model_sum=case01_loop + case02_loop
-            sum += model_sum
-            print('\033[32m{}_sum_case:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format("args_info_case01", case01_loop))
-            print('\033[32m{}_sum_case:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format("args_info_case02", case02_loop))  
-            print('\033[32m{}_all_sum_case:\033[0m   \033[32m【\033[0m{}\033[32m】\033[0m'.format(model, model_sum))   
-    
-    print('\033[32mAll_models_sum:\033[0m            \033[32m【\033[0m{}\033[32m】\033[0m'.format(len(models)))  
-    print('\033[32mAll_models_sum_case:\033[0m       \033[32m【\033[0m{}\033[32m】\033[0m'.format(sum))      
+            for args_info in args_info_cases:
+                case_loop = run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info)
+                print('\033[32m{}_sum_case:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format("Args_info_case_{}".format(case_num), case_loop))
+                case_num +=1  
+                model_case_sum +=case_loop
+        print('\033[32m{}_case_groups:\033[0m    \033[32m【\033[0m{}\033[32m】\033[0m'.format(model, len(args_info_cases)))
+        print('\033[32m{}_all_sum_case:\033[0m   \033[32m【\033[0m{}\033[32m】\033[0m'.format(model, model_case_sum))
+        all_model_case_sum += model_case_sum
+ 
+    print('\033[32mModels_sum:\033[0m                \033[32m【\033[0m{}\033[32m】\033[0m'.format(len(models)))  
+    print('\033[32mAll_models_sum_case:\033[0m       \033[32m【\033[0m{}\033[32m】\033[0m'.format(all_model_case_sum))      
     # print(sum)
 
 if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or 
     ( args.only_parse and args.weekly) or (args.only_parse and args.bi_weekly) or
-    ( args.only_parse and args.monthly) or 
+    ( args.only_parse and args.monthly) or ( args.only_parse and args.normal) or 
     (args.only_parse and args.test and args.dry_run ) or args.only_parse ):
     # parse output.log
     script_exec_path = os.path.realpath(os.path.dirname(__file__))
