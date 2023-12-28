@@ -514,14 +514,11 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD_148_{}".format(args.ww.upper(), tag_extend)
         models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'} ]
-
-    elif local_ip == "10.45.247.77":
+    else:
+        run_env.check_docker_env()
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD_{}_susan_2712".format(args.ww.upper(), tag_extend)
         models = [{'chatglm2-6b': '/opt/dataset/chatglm2-xft'}]
-    else:
-        print("Not support this IP")
-        exit(1)
     
     if args.weekly:
         models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'} ]
