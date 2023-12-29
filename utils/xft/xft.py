@@ -135,6 +135,9 @@ def parse_log(log_path, local_ip):
                 collect_ip = re.findall(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', line)[0]
             if re.search("\d\:\sMODE=", line):
                 single_case_list = []
+                input_tokens=0
+                output_tokens=0
+                batch_size=0
                 latency=0
                 first_token_average_latency=0
                 second_token_average_latency=0
@@ -145,6 +148,7 @@ def parse_log(log_path, local_ip):
                 dashboard_link=""
                 BASE_MODEL_NAME=""
                 precision=""
+                model_name=""
             if re.search("BASE_MODEL_NAME:", line):
                 BASE_MODEL_NAME=re.findall('BASE_MODEL_NAME:.*', line)[0].split(":")[1]
             if re.search("\d\:\sPRECISION=", line):
@@ -577,10 +581,11 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
 
     header_list.append('args_groups_sum')
     header_list.append('all_case_sum')
-    re = [ sum(all_summary_list[i][y] for i in range(len(all_summary_list))) for y in range(1,len(all_summary_list[0])) ]
-    re.insert(0,len(models))
-    all_summary_list.append(re)
+    results_list = [ sum(all_summary_list[i][y] for i in range(len(all_summary_list))) for y in range(1,len(all_summary_list[0])) ]
+    results_list.insert(0,len(models))
+    all_summary_list.append(results_list)
     # termtables.print(all_summary_list, header = header_list)
+    print('{0}\033[32m summary result \033[0m{1}'.format("-"*50,"-"*50))
     print(tabulate(all_summary_list, tablefmt="fancy_grid", headers=header_list, numalign="center"))
 
 # parse the output*.log
@@ -594,12 +599,14 @@ if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or
     summary_excel = os.path.join(script_exec_path, "{}.xlsx".format("summary"))
     print('\033[32mLog file list is: \033[0m{0}'.format(file_list))
     each_kpi_summary = []
+    parse_case_sum=[]
+    headers_list=[]
     if len(file_list) != 0:
         for file in file_list:
             output_file = os.path.join(script_exec_path, file)
             basename = os.path.basename(output_file).split(".")[0]
             output_excel = os.path.join(script_exec_path, "{}.xlsx".format(basename))
-
+            headers_list.append(basename)
             if os.path.exists(output_file):
                 print('{0}\033[32m parse log result \033[0m{1}'.format("-"*50,"-"*50))
                 data = parse_log(output_file, local_ip)
@@ -608,7 +615,8 @@ if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or
                     cols = ["BaseModelName","Variant", "Precision", "BatchSize", "Input_Tokens","Output_Tokens",
                             "Framework", "IsPass", "Throughput", "Min_Latency", "Max_Latency" ,"P90_Latency", 
                             "1st_Token_Latency", "2nd+_Tokens_Average_Latency", "WorkloadName","run_uri_perf", "local_IP"]
-                    print(len(data))
+                    # print(len(data))
+                    parse_case_sum.append(len(data))
                     df = pd.DataFrame(data, columns=cols)
                     df.to_excel(writer, index=False)
                     each_kpi_summary.append(data)
@@ -616,9 +624,12 @@ if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or
         # Summary multiple output logs
         with pd.ExcelWriter(summary_excel) as writer:
             each_kpi_summary = sum(each_kpi_summary, [])
-            print(len(each_kpi_summary))
+            # print(len(each_kpi_summary))
+            parse_case_sum.append(len(each_kpi_summary))
             df = pd.DataFrame(each_kpi_summary, columns=cols)
             df.to_excel(writer, index=False)
-
+    headers_list.append("parse_all_logfile_case_sum")
+    print('{0}\033[32m summary result \033[0m{1}'.format("-"*50,"-"*50))
+    print(tabulate([parse_case_sum], headers=headers_list, tablefmt="fancy_grid", numalign="center"))
 end_time = time.time()
 print("Total time spent: {:.2f}sec".format(end_time - start_time))
