@@ -6,8 +6,8 @@ import time
 import glob
 import subprocess
 import paramiko
-import termtables
 import pandas as pd
+from tabulate import tabulate
 from paramiko import BadHostKeyException, AuthenticationException, SSHException
 
 """
@@ -356,14 +356,14 @@ def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_
     model_path_args = ' --set "MODEL_PATH={0}"'.format(model_path)
     run_args = './ctest.sh -R {0} --set "{1}" --set "MODEL_NAME={2}"{3}{4} '.format("pkm", base_args, model, model_path_args, sut_args)
     if dry_run:
-        from tabulate import tabulate
-        # print('\033[32mCmake cmd:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
-        # print('\033[32mRun_model:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(model))
-        # print('\033[32mSut_args:\033[0m      \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
-        # print('\033[32mRun_case_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(run_args))
+
+        print('\033[32mCmake cmd:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
+        print('\033[32mRun_model:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(model))
+        print('\033[32mSut_args:\033[0m      \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
+        print('\033[32mRun_case_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(run_args))
         # termtables.print([[model,pre_run_args,run_args]],header=header_list)
-        print(tabulate([[cmake_cmd]], tablefmt="fancy_grid", headers=['cmake_cmd'], maxcolwidths=[120], numalign="right"))
-        print(tabulate([[model,pre_run_args,run_args]], tablefmt="fancy_grid", headers=header_list, maxcolwidths=[None, None, 60], numalign="right"))
+        # print(tabulate([[cmake_cmd]], tablefmt="fancy_grid", headers=['cmake_cmd'], maxcolwidths=[120], numalign="right"))
+        # print(tabulate([[model,pre_run_args,run_args]], tablefmt="fancy_grid", headers=header_list, maxcolwidths=[None, None, 60], numalign="right"))
     else:
         build_name = "build_" + model
         if "/" in model:
@@ -577,14 +577,9 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
 
     header_list.append('args_groups_sum')
     header_list.append('all_case_sum')
-    # print(header_list)
-    # print(all_summary_list)
     re = [ sum(all_summary_list[i][y] for i in range(len(all_summary_list))) for y in range(1,len(all_summary_list[0])) ]
     re.insert(0,len(models))
-    # print(re)
     all_summary_list.append(re)
-    # print(all_summary_list)
-    from tabulate import tabulate
     # termtables.print(all_summary_list, header = header_list)
     print(tabulate(all_summary_list, tablefmt="fancy_grid", headers=header_list, numalign="center"))
 
