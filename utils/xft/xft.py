@@ -6,6 +6,7 @@ import time
 import glob
 import subprocess
 import paramiko
+import termtables
 import pandas as pd
 from paramiko import BadHostKeyException, AuthenticationException, SSHException
 
@@ -345,6 +346,7 @@ def format_args(**kwargs):
     return base_args, loop_sum
     
 def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_run=False, **kwargs):
+    header_list = ['Run_model','Sut_args','Run_case_args']
     cmake_cmd = "cmake -DREGISTRY={}:20666 -DPLATFORM=SPR -DRELEASE=latest -DACCEPT_LICENSE=ALL -DBACKEND=terraform -DBENCHMARK= \
     -DTERRAFORM_SUT=static -DTERRAFORM_OPTIONS='{} --svrinfo --intel_publish --tags={} \
     --owner=sf-post-silicon' -DTIMEOUT=60000,3600 ..".format(local_ip, if_docker,tags)
@@ -354,10 +356,14 @@ def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_
     model_path_args = ' --set "MODEL_PATH={0}"'.format(model_path)
     run_args = './ctest.sh -R {0} --set "{1}" --set "MODEL_NAME={2}"{3}{4} '.format("pkm", base_args, model, model_path_args, sut_args)
     if dry_run:
-        print('\033[32mCmake cmd:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
-        print('\033[32mRun_model:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(model))
-        print('\033[32mSut_args:\033[0m      \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
-        print('\033[32mRun_case_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(run_args))
+        from tabulate import tabulate
+        # print('\033[32mCmake cmd:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
+        # print('\033[32mRun_model:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(model))
+        # print('\033[32mSut_args:\033[0m      \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
+        # print('\033[32mRun_case_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(run_args))
+        # termtables.print([[model,pre_run_args,run_args]],header=header_list)
+        print(tabulate([[cmake_cmd]], tablefmt="fancy_grid", headers=['cmake_cmd'], maxcolwidths=[120], numalign="right"))
+        print(tabulate([[model,pre_run_args,run_args]], tablefmt="fancy_grid", headers=header_list, maxcolwidths=[None, None, 60], numalign="right"))
     else:
         build_name = "build_" + model
         if "/" in model:
@@ -513,7 +519,9 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
         run_env.check_docker_env()
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD_148_{}".format(args.ww.upper(), tag_extend)
-        models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'} ]
+        models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'},
+                  {'baichuan2-13b': '/opt/dataset/baichuan2-xft'} , {'llama-2-13b': '/opt/dataset/llama2-xft'}, 
+                  {'chatglm2-6b': '/opt/dataset/chatglm2-xft'}, {'baichuan2-7b': '/opt/dataset/baichuan2-xft'}]
     else:
         run_env.check_docker_env()
         if_docker = "--docker"
@@ -545,24 +553,42 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     replacetext(local_ip, local_user)
 
     # run model
-    all_model_case_sum = 0
+    all_model_case_sum = 0 # define the case loop sum of all models
+    all_summary_list = [] # Loop summary information for all models， 
     for all_models in models: # 2
-        case_num = 1
-        model_case_sum = 0
+        case_num = 1 # define the case num
+        model_case_sum = 0 # define the case loop sum
+        header_list = []
+        header_list.append('model')
         for model, model_path in all_models.items():
+            each_model_summary_list = [] # Loop summary information for each model
+            each_model_summary_list.append(model)
             for args_info in args_info_cases:
                 case_loop = run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info)
-                print('\033[32m{}_sum_case:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format("Args_info_case_{}".format(case_num), case_loop))
-                case_num +=1  
                 model_case_sum +=case_loop
-        print('\033[32m{}_case_groups:\033[0m    \033[32m【\033[0m{}\033[32m】\033[0m'.format(model, len(args_info_cases)))
-        print('\033[32m{}_all_sum_case:\033[0m   \033[32m【\033[0m{}\033[32m】\033[0m'.format(model, model_case_sum))
+                each_model_summary_list.append(case_loop)
+                header_list.append('Args_info_case_{}_sum_case'.format(case_num))
+                case_num +=1 
+            each_model_summary_list.extend([len(args_info_cases), model_case_sum])
+            # print('\033[32m{:<29}\033[0m\033[32m{:>21}\033[0m{}\033[32m】\033[0m'.format("{}_case_groups:".format(model), "【",len(args_info_cases)))
+            # print('\033[32m{:<29}\033[0m\033[32m{:>21}\033[0m{}\033[32m】\033[0m'.format("{}_all_sum_case:".format(model), "【",model_case_sum))
         all_model_case_sum += model_case_sum
- 
-    print('\033[32mModels_sum:\033[0m                \033[32m【\033[0m{}\033[32m】\033[0m'.format(len(models)))  
-    print('\033[32mAll_models_sum_case:\033[0m       \033[32m【\033[0m{}\033[32m】\033[0m'.format(all_model_case_sum))      
-    # print(sum)
+        all_summary_list.append(each_model_summary_list)
 
+    header_list.append('args_groups_sum')
+    header_list.append('all_case_sum')
+    # print(header_list)
+    # print(all_summary_list)
+    re = [ sum(all_summary_list[i][y] for i in range(len(all_summary_list))) for y in range(1,len(all_summary_list[0])) ]
+    re.insert(0,len(models))
+    # print(re)
+    all_summary_list.append(re)
+    # print(all_summary_list)
+    from tabulate import tabulate
+    # termtables.print(all_summary_list, header = header_list)
+    print(tabulate(all_summary_list, tablefmt="fancy_grid", headers=header_list, numalign="center"))
+
+# parse the output*.log
 if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or 
     ( args.only_parse and args.weekly) or (args.only_parse and args.bi_weekly) or
     ( args.only_parse and args.monthly) or ( args.only_parse and args.normal) or 
