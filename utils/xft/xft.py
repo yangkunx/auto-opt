@@ -349,26 +349,33 @@ def format_args(**kwargs):
     base_args = base_args[0:-1]
     return base_args, loop_sum
     
-def run_workload(model, model_path="", dry_run=False, **kwargs):
+def run_workload(model, model_path="", case_num=0, dry_run=False, case_name="", **kwargs):
 
     
     base_args, loop_sum= format_args(**kwargs)
+    pre_run_args = './ctest.sh -R {0} --prepare-sut -V'.format(case_name)
     sut_args = ' --loop={0} --reuse-sut -V --continue'.format(loop_sum)
     model_path_args = ' --set "MODEL_PATH={0}"'.format(model_path)
-    run_args = './ctest.sh -R {0} --set "{1}" --set "MODEL_NAME={2}"{3}{4} '.format("pkm", base_args, model, model_path_args, sut_args)
+    run_args = './ctest.sh -R {0} --set "{1}" --set "MODEL_NAME={2}"{3}{4} '.format(case_name, base_args, model, model_path_args, sut_args)
     if dry_run:
 
         
         # print('\033[32mRun_model:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(model))
+        print('\033[32mSut_args:\033[0m      \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
+        print('\033[32m{}_{}_args:\033[0m \033[32m   【\033[0m{}\033[32m】\033[0m'.format(case_name, case_num, run_args))
         
-        print('\033[32mRun_case_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(run_args))
+        # '{}_case_{}_sum'.format(case_name, case_num)
         # termtables.print([[model,pre_run_args,run_args]],header=header_list)
         # print(tabulate([[cmake_cmd]], tablefmt="fancy_grid", headers=['cmake_cmd'], maxcolwidths=[120], numalign="right"))
         # print(tabulate([[model,pre_run_args,run_args]], tablefmt="fancy_grid", headers=header_list, maxcolwidths=[None, None, 60], numalign="right"))
     else:
         
+        #prepare sut
+        print('\033[32msut_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
+        os.system(pre_run_args)
+        
         #run sut
-        print('\033[32mRun_case_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(run_args))
+        print('\033[32m{}_{}_args:\033[0m \033[32m   【\033[0m{}\033[32m】\033[0m'.format(case_name, case_num, run_args))
         os.system(run_args)
     
     return loop_sum
@@ -404,6 +411,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
    ( args.only_parse and args.monthly) or ( args.only_parse and args.test) or 
    ( args.only_parse and args.normal) or (args.only_parse and args.test and args.dry_run )):
     
+    
     # check ssh
     check_ssh_con = run_env.check_ssh_connect()
     
@@ -413,7 +421,10 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     
     # Only test the running env on each server when args.test is True
     tag_extend=""
-    args_info_cases = []
+    args_info_cases = {}
+    # case_name = ['pkm', 'accuracy']
+    args_info_acc01 = {}
+    args_info_case02 = {}
     if args.test:
         if args.weekly:
             args_info_case01 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [512], 
@@ -426,6 +437,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
                                 'BATCH_SIZE': [1], 'PRECISION': ['bf16'] }
             args_info_case02 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [1024],
                                 'BATCH_SIZE': [1], 'PRECISION': ['bf16_fp16'] }
+            args_info_acc01 = { 'PRECISION': ['bf16', 'fp16', 'int8', 'int4'] }
             tag_extend="test_bi-weekly"
         elif args.monthly:
             args_info_case01 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [512],
@@ -437,7 +449,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
             args_info_case01 = { "WARMUP_STEPS": 1, 'STEPS': 5, 
                             'XFT_FAKE_MODEL':1, 'PRECISION': ['bf16_fp16','bf16','bf16_int8','bf16_int4'], 
                             'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32] }
-            args_info_case02 = { }
+            
             tag_extend="test_normal"
         else:
             print("\033[1;31;40m Please specify parameter --weekly(--w) or --bi_weekly(--bw) or --monthly(--m) or --normal(--n)\033[0m")
@@ -455,6 +467,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
                                 'BATCH_SIZE': [1,4,8,16,32], 'PRECISION': ['bf16'] }
             args_info_case02 = { 'INPUT_TOKENS': [512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048],
                                 'BATCH_SIZE': [1], 'PRECISION': ['bf16_fp16'] }
+            args_info_acc01 = { 'PRECISION': ['bf16', 'fp16', 'int8', 'int4'] }
             tag_extend="bi-weekly"
         elif args.monthly:
             args_info_case01 = { 'INPUT_TOKENS': [512], 'OUTPUT_TOKENS': [512],
@@ -471,10 +484,10 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
         else:
             print("\033[1;31;40m Please specify parameter --weekly(--w) or --bi_weekly(--bw) or --monthly(--m) or --normal(--n)\033[0m")
             exit(1)
-    
-    args_info_cases.extend([args_info_case01, args_info_case02])
-    args_info_cases = [ case for case in args_info_cases if len(case) !=0 ]
-    
+ 
+    args_info_cases.update({"pkm":[args_info_case01, args_info_case02], "accuracy":[args_info_acc01]})
+    args_info_cases = {k: [ case for case in v if len(case) !=0 ]  for k, v in args_info_cases.items()}
+ 
     if_docker = ""
     tags = ""
     if local_ip == "172.17.29.24":
@@ -482,14 +495,15 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
         run_env.check_docker_env()
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD_{}".format(args.ww.upper(), tag_extend)
-        models = [{'llama-2-13b': '/mnt/nfs_share/xft/llama2-xft'}, {'baichuan2-13b': '/mnt/nfs_share/xft/baichuan2-xft'}]
+        models = [{'llama-2-13b': '/mnt/nfs_share/xft/llama2-xft'}, {'baichuan2-13b': '/mnt/nfs_share/xft/baichuan2-xft'},
+                  {'chatglm2-6b': '/opt/dataset/chatglm2-xft'}]
     elif local_ip == "192.168.14.61":
         # check docker env 
         run_env.check_docker_env()
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD_{}".format(args.ww.upper(), tag_extend)
-        models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'chatglm2-6b': '/opt/dataset/chatglm2-xft'},
-                   {'baichuan2-7b': '/opt/dataset/baichuan2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'} ]
+        models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'baichuan2-7b': '/opt/dataset/baichuan2-xft'}, 
+                  {'chatglm-6b': '/opt/dataset/chatglm-xft'} ]
     elif local_ip == "192.168.14.121":
         # check k8s env 
         run_env.check_k8s_env()
@@ -541,62 +555,67 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     replacetext(local_ip, local_user)
 
     # run model
-    all_model_case_sum = 0 # define the case loop sum of all models
-    all_summary_list = [] # Loop summary information for all models， 
-    for all_models in models: # 2
-        case_num = 1 # define the case num
-        model_case_sum = 0 # define the case loop sum
-        header_list = []
-        header_list.append('model')
+    def run_model(models_list, **kwargs):
+        all_model_case_sum = 0 # define the case loop sum of all models
+        all_summary_list = [] # Loop summary information for all models
+        
+        for all_models in models_list: # 2
+            model_case_sum = 0 # define the case loop sum
+            groups_num = 0
+            header_list = []
+            header_list.append('model')
 
-        for model, model_path in all_models.items():
-            each_model_summary_list = [] # Loop summary information for each model
-            each_model_summary_list.append(model)
-            cmake_cmd = "cmake -DREGISTRY={}:20666 -DPLATFORM=SPR -DRELEASE=latest -DACCEPT_LICENSE=ALL -DBACKEND=terraform -DBENCHMARK= \
-            -DTERRAFORM_SUT=static -DTERRAFORM_OPTIONS='{} --svrinfo --intel_publish --tags={} \
-            --owner=sf-post-silicon' -DTIMEOUT=60000,3600 ..".format(local_ip, if_docker,tags)
-            pre_run_args = './ctest.sh -R {0} --prepare-sut -V'.format("pkm")
-            print('{}\033[32m {} \033[0m{}'.format("-"*50,model,"-"*50))
-            if args.dry_run:
-                print('\033[32mCmake cmd:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
-                print('\033[32mSut_args:\033[0m      \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
-            else:
-                build_name = "build_" + model
-                if "/" in model:
-                    build_name = "build_" + model.replace("/","_")
-                build_path = os.path.join(ww_repo_dir, build_name)
-                create_dir_or_file(build_path)
-                chdir(build_path, "ww_repo_model_build")
-                #cmake
-                print('\033[32mCmake cmd:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
-                os.system(cmake_cmd)
-                chdir(os.path.join(build_path, "workload", workload_name), "ww_build_workload_path")
-                os.system("make")
-                #prepare sut
-                print('\033[32msut_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
-                os.system(pre_run_args)
+            for model, model_path in all_models.items():
+                each_model_summary_list = [] # Loop summary information for each model
+                each_model_summary_list.append(model)
+                cmake_cmd = "cmake -DREGISTRY={}:20666 -DPLATFORM=SPR -DRELEASE=latest -DACCEPT_LICENSE=ALL -DBACKEND=terraform -DBENCHMARK= \
+                      -DTERRAFORM_SUT=static -DTERRAFORM_OPTIONS='{} --svrinfo --intel_publish --tags={} \
+                                 --owner=sf-post-silicon' -DTIMEOUT=60000,3600 ..".format(local_ip, if_docker,tags)
+                
+                print('{}\033[32m {} \033[0m{}'.format("-"*50,model,"-"*50))
+                if args.dry_run:
+                    print('\033[32mCmake cmd:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
+                else:
+                    build_name = "build_" + model
+                    if "/" in model:
+                        build_name = "build_" + model.replace("/","_")
+                    build_path = os.path.join(ww_repo_dir, build_name)
+                    create_dir_or_file(build_path)
+                    chdir(build_path, "ww_repo_model_build")
+                    #cmake
+                    print('\033[32mCmake cmd:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
+                    os.system(cmake_cmd)
+                    chdir(os.path.join(build_path, "workload", workload_name), "ww_build_workload_path")
+                    os.system("make")
+                
+                for case_name , args_list in kwargs.items():
+                    case_num = 1 # define the case num
+                    for args_info in args_list:
+                        case_loop = run_workload(model,  model_path, case_num, dry_run=args.dry_run, case_name=case_name, **args_info)
+                        model_case_sum +=case_loop
+                        each_model_summary_list.append(case_loop)
+                        header_list.append('{}_case_{}_sum'.format(case_name, case_num))
+                        case_num +=1 
+                    groups_num +=len(args_list)
+                
+                print('{}\033[32m {} \033[0m{}'.format("-"*55,"end","-"*55))
+                each_model_summary_list.extend([groups_num, model_case_sum])
             
-            for args_info in args_info_cases:
-                case_loop = run_workload(model,  model_path, dry_run=args.dry_run, **args_info)
-                model_case_sum +=case_loop
-                each_model_summary_list.append(case_loop)
-                header_list.append('Args_info_case_{}_sum_case'.format(case_num))
-                case_num +=1 
-            
-            print('{}\033[32m {} \033[0m{}'.format("-"*55,"end","-"*55))
-            each_model_summary_list.extend([len(args_info_cases), model_case_sum])
-            # print('\033[32m{:<29}\033[0m\033[32m{:>21}\033[0m{}\033[32m】\033[0m'.format("{}_case_groups:".format(model), "【",len(args_info_cases)))
-            # print('\033[32m{:<29}\033[0m\033[32m{:>21}\033[0m{}\033[32m】\033[0m'.format("{}_all_sum_case:".format(model), "【",model_case_sum))
-        all_model_case_sum += model_case_sum
-        all_summary_list.append(each_model_summary_list)
+            print(each_model_summary_list)
+            all_model_case_sum += model_case_sum
+            all_summary_list.append(each_model_summary_list)
 
-    header_list.append('args_groups_sum')
-    header_list.append('all_case_sum')
-    results_list = [ sum(all_summary_list[i][y] for i in range(len(all_summary_list))) for y in range(1,len(all_summary_list[0])) ]
-    results_list.insert(0,len(models))
-    all_summary_list.append(results_list)
+        header_list.append('args_groups_sum')
+        header_list.append('all_case_sum')
+        results_list = [ sum(all_summary_list[i][y] for i in range(len(all_summary_list))) for y in range(1,len(all_summary_list[0])) ]
+        results_list.insert(0,len(models))
+        all_summary_list.append(results_list)
+        
+        return all_summary_list, header_list
     # termtables.print(all_summary_list, header = header_list)
     print('{0}\033[32m summary result \033[0m{1}'.format("-"*50,"-"*50))
+    
+    all_summary_list, header_list = run_model(models, **args_info_cases)
     print(tabulate(all_summary_list, tablefmt="fancy_grid", headers=header_list, numalign="center"))
 
 # parse the output*.log
