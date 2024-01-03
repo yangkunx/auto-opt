@@ -349,40 +349,24 @@ def format_args(**kwargs):
     base_args = base_args[0:-1]
     return base_args, loop_sum
     
-def run_workload(workload, model, tags, local_ip, if_docker, model_path="", dry_run=False, **kwargs):
-    header_list = ['Run_model','Sut_args','Run_case_args']
-    cmake_cmd = "cmake -DREGISTRY={}:20666 -DPLATFORM=SPR -DRELEASE=latest -DACCEPT_LICENSE=ALL -DBACKEND=terraform -DBENCHMARK= \
-    -DTERRAFORM_SUT=static -DTERRAFORM_OPTIONS='{} --svrinfo --intel_publish --tags={} \
-    --owner=sf-post-silicon' -DTIMEOUT=60000,3600 ..".format(local_ip, if_docker,tags)
-    pre_run_args = './ctest.sh -R {0} --prepare-sut -V'.format("pkm")
+def run_workload(model, model_path="", dry_run=False, **kwargs):
+
+    
     base_args, loop_sum= format_args(**kwargs)
     sut_args = ' --loop={0} --reuse-sut -V --continue'.format(loop_sum)
     model_path_args = ' --set "MODEL_PATH={0}"'.format(model_path)
     run_args = './ctest.sh -R {0} --set "{1}" --set "MODEL_NAME={2}"{3}{4} '.format("pkm", base_args, model, model_path_args, sut_args)
     if dry_run:
 
-        print('\033[32mCmake cmd:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
-        print('\033[32mRun_model:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(model))
-        print('\033[32mSut_args:\033[0m      \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
+        
+        # print('\033[32mRun_model:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(model))
+        
         print('\033[32mRun_case_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(run_args))
         # termtables.print([[model,pre_run_args,run_args]],header=header_list)
         # print(tabulate([[cmake_cmd]], tablefmt="fancy_grid", headers=['cmake_cmd'], maxcolwidths=[120], numalign="right"))
         # print(tabulate([[model,pre_run_args,run_args]], tablefmt="fancy_grid", headers=header_list, maxcolwidths=[None, None, 60], numalign="right"))
     else:
-        build_name = "build_" + model
-        if "/" in model:
-            build_name = "build_" + model.replace("/","_")
-        build_path = os.path.join(ww_repo_dir, build_name)
-        create_dir_or_file(build_path)
-        chdir(build_path, "ww_repo_model_build")
-        #cmake
-        print('\033[32mCmake cmd:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
-        os.system(cmake_cmd)
-        chdir(os.path.join(build_path, "workload", workload), "ww_build_workload_path")
-        os.system("make")
-        #prepare sut
-        print('\033[32msut_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
-        os.system(pre_run_args)
+        
         #run sut
         print('\033[32mRun_case_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(run_args))
         os.system(run_args)
@@ -524,7 +508,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD_148_{}".format(args.ww.upper(), tag_extend)
         models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'},
-                  {'baichuan2-13b': '/opt/dataset/baichuan2-xft'} , {'llama-2-13b': '/opt/dataset/llama2-xft'}, 
+                  {'baichuan2-13b': '/opt/dataset/baichuan2-xft'}, 
                   {'chatglm2-6b': '/opt/dataset/chatglm2-xft'}, {'baichuan2-7b': '/opt/dataset/baichuan2-xft'}]
     else:
         run_env.check_docker_env()
@@ -564,15 +548,42 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
         model_case_sum = 0 # define the case loop sum
         header_list = []
         header_list.append('model')
+
         for model, model_path in all_models.items():
             each_model_summary_list = [] # Loop summary information for each model
             each_model_summary_list.append(model)
+            cmake_cmd = "cmake -DREGISTRY={}:20666 -DPLATFORM=SPR -DRELEASE=latest -DACCEPT_LICENSE=ALL -DBACKEND=terraform -DBENCHMARK= \
+            -DTERRAFORM_SUT=static -DTERRAFORM_OPTIONS='{} --svrinfo --intel_publish --tags={} \
+            --owner=sf-post-silicon' -DTIMEOUT=60000,3600 ..".format(local_ip, if_docker,tags)
+            pre_run_args = './ctest.sh -R {0} --prepare-sut -V'.format("pkm")
+            print('{}\033[32m {} \033[0m{}'.format("-"*50,model,"-"*50))
+            if args.dry_run:
+                print('\033[32mCmake cmd:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
+                print('\033[32mSut_args:\033[0m      \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
+            else:
+                build_name = "build_" + model
+                if "/" in model:
+                    build_name = "build_" + model.replace("/","_")
+                build_path = os.path.join(ww_repo_dir, build_name)
+                create_dir_or_file(build_path)
+                chdir(build_path, "ww_repo_model_build")
+                #cmake
+                print('\033[32mCmake cmd:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
+                os.system(cmake_cmd)
+                chdir(os.path.join(build_path, "workload", workload_name), "ww_build_workload_path")
+                os.system("make")
+                #prepare sut
+                print('\033[32msut_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
+                os.system(pre_run_args)
+            
             for args_info in args_info_cases:
-                case_loop = run_workload(workload_name, model, tags, local_ip, if_docker, model_path, dry_run=args.dry_run, **args_info)
+                case_loop = run_workload(model,  model_path, dry_run=args.dry_run, **args_info)
                 model_case_sum +=case_loop
                 each_model_summary_list.append(case_loop)
                 header_list.append('Args_info_case_{}_sum_case'.format(case_num))
                 case_num +=1 
+            
+            print('{}\033[32m {} \033[0m{}'.format("-"*55,"end","-"*55))
             each_model_summary_list.extend([len(args_info_cases), model_case_sum])
             # print('\033[32m{:<29}\033[0m\033[32m{:>21}\033[0m{}\033[32m】\033[0m'.format("{}_case_groups:".format(model), "【",len(args_info_cases)))
             # print('\033[32m{:<29}\033[0m\033[32m{:>21}\033[0m{}\033[32m】\033[0m'.format("{}_all_sum_case:".format(model), "【",model_case_sum))
