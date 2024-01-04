@@ -1,63 +1,28 @@
 import pandas as pd
 import os
 import glob
-
+import numpy as np
 import matplotlib.pyplot as plt
+from collections import defaultdict
 
 def dict_sort(dict_name):
+    # 按照字典key(model name) 排序
     myKeys = list(dict_name.keys())
     myKeys.sort()
     sorted_dict = {i: dict_name[i] for i in myKeys}
     return sorted_dict
 
-def check_dict_eunm(dict_name):
+def check_dict_eunm(dict_name, model_name):
+    # model 的值不存在，就添加该model值为0
     for model in model_name:
         if model not in list(send.keys()):
             dict_name[model]=0
     return dict_name
 
-def show_plot(x_axis, y_axis, model):
-    plt.title("2nd_report")
-    plt.xlabel("Weekly_{}".format(model))
-    plt.ylabel("2nd+_Tokens_Average_Latency (sec)")
-
-    plt.rcParams['figure.figsize'] = [14, 5] 
-    x = np.array(x_axis)
-    y = np.array(y_axis)
-
-    plt.plot(x, y, color = 'green', 
-         linestyle = 'solid', marker = 'o', 
-         markerfacecolor = 'red', markersize = 5) 
-    # for a,b in zip(x, y): 
-    #     plt.text(a, b, str(b), offset = 0.5)
-    for a,b in zip(x, y):
-        plt.annotate(str(b), # this is the text
-                    (a,b), # these are the coordinates to position the label
-                    textcoords="offset points", # how to position the text
-                    xytext=(0,4), # distance from text to points (x,y)
-                    ha='left') # horizontal alignment can be left, right or center
-
-    plt.grid()
-
-    plt.show()
 
 def get_emon_data(file_path, sheet_name, sample, select_col):
-    """
-    Use pandas to get the data of Specify sample and sheet from excel
-    Args:
-        file_path (_type_): the path of excel
-        sheet_name (_type_): the sheet of excel
-        sample (_type_): the sample of excel
-        select_col (_type_): the select coloum of excel
-
-    Returns:
-        _type_: Returns the float value of each cell
-    """
     df = pd.read_excel(file_path, index_col=0, header=0, sheet_name=sheet_name, usecols=lambda x: 'BaseModelName' not in x)
-    # 
-    # sample_value = df.loc[sample, select_col]
-    # print(df['Precision'])
-    sample_value = df.loc[(df['Precision'] == sample) & (df['Input_Tokens'] == 1024) & (df['Output_Tokens'] == 128) & (df['BatchSize'] == 1)]
+    sample_value = df.loc[(df['Precision'] == sample) & (df['Input_Tokens'] == 1024) & (df['Output_Tokens'] == 512) & (df['BatchSize'] == 1)]
     return sample_value
 
 path = "./ww"
@@ -73,70 +38,45 @@ for file in file_list:
     ww = os.path.splitext(file)[0].split('_')[1]
     re = get_emon_data(file, hbm_sheet_name, simple, select_col).to_dict()
     send = re['2nd+_Tokens_Average_Latency (sec)']
-    # print(file)
-    # print(send)
-    send = check_dict_eunm(send)
+    send = check_dict_eunm(send, model_name)
+    print(dict_sort(send))
+    # 以每周嵌套字典组合
+    # {'ww50': {'baichuan2-13b': 0.1223, 'baichuan2-7b': 0.0659, 'chatglm-6b': 0.02743, 'chatglm2-6b': 0.02485, 'llama-2-13b': 0.05007, 'llama-2-7b': 0.06083}, 'ww48': {'baichuan2-13b': 0, 'baichuan2-7b': 0, 'chatglm-6b': 0, 'chatglm2-6b': 0.02646, 'llama-2-13b': 0, 'llama-2-7b': 0.05434}, 'ww51': {'baichuan2-13b': 0.05058, 'baichuan2-7b': 0.03004, 'chatglm-6b': 0.02745, 'chatglm2-6b': 0.0249, 'llama-2-13b': 0.05029, 'llama-2-7b': 0.02914}, 'ww49': {'baichuan2-13b': 0.12861, 'baichuan2-7b': 0.03321, 'chatglm-6b': 0.02722, 'chatglm2-6b': 0.02594, 'llama-2-13b': 0, 'llama-2-7b': 0.03042}}
     ww_all[ww] = dict_sort(send)
-# print(ww_all)
+    
+
 all= dict_sort(ww_all)
-# print(all)
-from collections import defaultdict
-# {i:list(j) for i in dict1.keys() for j in zip(dict1.values(),dict2.values())} 
-test = []
-for ww, ww_value in all.items():
-    # print(ww)
-    # print(ww_value)
-    # test.append(ww)
-    test.append(ww_value)
-print(all)
-print(test)
-ddef = defaultdict(list)
-for dc in test:
+sample_list = list(all.values())
+
+default_dict = defaultdict(list)
+
+for dc in sample_list:
     for ke, va in dc.items():
-        #   following statement is also valid
-        #   ddef[ke] += [va]
-        ddef[ke].append(va)
+        default_dict[ke].append(va)
 
-dcombo = dict(ddef)
-print(dcombo)
-# dcombo.update({"ww": list(all.keys())})
-print(dcombo)
-df = pd.DataFrame(dcombo, index=list(all.keys()))
-#df.plot(kind='area', figsize=(9,6), stacked=False)
-# df.plot.line( y=model_name, figsize=(20,10), title='ww_model({}_{}_{}_{})'.format("bf16_bf16","1024","128","1"), ylabel='2nd+_Tokens_Average_Latency (sec)')
-import numpy as np
+default_dict = dict(default_dict)
+print(default_dict)
 
-# x = list(all.keys())
-# for model, value in dcombo.items():
-#     show_plot(x, value, model)
+df = pd.DataFrame(default_dict, index=list(all.keys()))
 
-print(plt.style.available)
 
 plt.title("2nd+_Tokens_Average_Latency")
-plt.xlabel("Weekly_{}".format("model"))
+plt.xlabel("Weekly_{}".format("model")) 
 plt.ylabel("2nd+_Tokens_Average_Latency (sec)")
 
+# setting style
+plt.style.use('Solarize_Light2') 
 plt.rcParams['figure.figsize'] = [14, 5] 
 x = np.array(list(all.keys()))
-y = np.array(dcombo['chatglm-6b'])
-# plt.style.use('seaborn-v0_8')
+y = np.array(default_dict['chatglm-6b'])
 
-available = ['default'] + plt.style.available
-# for i, style in enumerate(available):
-#         # ax = fig.add_subplot(10, 3, i + 1)
-plt.plot(x, y, color = 'blue', 
-    linestyle = 'solid', marker = 'o', 
-    markerfacecolor = 'red', markersize = 5) 
-# for a,b in zip(x, y): 
-#     plt.text(a, b, str(b), offset = 0.5)
+plt.plot(x, y,'bo-',label="2nd")
+
 for a,b in zip(x, y):
     plt.annotate(str(b), # this is the text
                 (a,b), # these are the coordinates to position the label
                 textcoords="offset points", # how to position the text
                 xytext=(0,4), # distance from text to points (x,y)
                 ha='left') # horizontal alignment can be left, right or center
-# plt.grid()
-plt.style.use("tableau-colorblind10")
 
-# print(style)
 plt.show()
