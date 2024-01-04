@@ -36,7 +36,9 @@ from paramiko import BadHostKeyException, AuthenticationException, SSHException
 """
 
 class Env():
-    
+    """
+    check run env, such as ssh, docker or k8s env
+    """
     def __init__(self, ssh_user, ssh_pwd, ssh_ip):
         self.ssh_user = ssh_user
         self.ssh_pwd = ssh_pwd
@@ -131,7 +133,6 @@ def parse_log(log_path, local_ip):
         lines = ds_log.readlines()
         for line in lines:
             if re.search("Setting: REGISTRY=", line):
-                # print(line)
                 collect_ip = re.findall(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', line)[0]
             if re.search("\d\:\sMODE=", line):
                 single_case_list = []
@@ -147,11 +148,11 @@ def parse_log(log_path, local_ip):
                 throughput=0
                 accuracy=0
                 dashboard_link=""
-                BASE_MODEL_NAME=""
+                base_model_name=""
                 precision=""
                 model_name=""
             if re.search("BASE_MODEL_NAME:", line):
-                BASE_MODEL_NAME=re.findall('BASE_MODEL_NAME:.*', line)[0].split(":")[1]
+                base_model_name=re.findall('BASE_MODEL_NAME:.*', line)[0].split(":")[1]
             if re.search("\d\:\sPRECISION=", line):
                 precision=re.findall('\d\:\sPRECISION=.*', line)[0].split("=")[1]
                 if precision == "bf16":
@@ -205,7 +206,7 @@ def parse_log(log_path, local_ip):
                 dashboard_id = dashboard_link.split("/")[-1]
                 zip_link = 'https://d15e4ftowigvkb.cloudfront.net/{}-gptj_pytorch_public.zip'.format(dashboard_id)
                 # Get link
-                _link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, BASE_MODEL_NAME)
+                _link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, base_model_name)
                 # link = '=HYPERLINK("{0}", "{1}")'.format(dashboard_link, float(latency))
                 
                 single_case_list.append(_link)
@@ -251,6 +252,9 @@ def parse_log(log_path, local_ip):
     return single_file_list
 
 def checkout_origin(remote_url, branch_name):
+    """
+    check git origin
+    """
     remote_urls = subprocess.check_output("git remote -v | awk '{print $2}'", shell=True).decode("utf-8").split('\n')
     remote_urls = list(set([x for x in remote_urls if x != "" ]))
     # print(remote_urls)
@@ -398,11 +402,13 @@ def run_model(models_list, **kwargs):
                         print('\033[32m{}_sut_args:\033[0m  \033[32m【\033[0m{}\033[32m】\033[0m'.format(case_name, pre_run_args))
                         os.system(pre_run_args)
                     for args_info in args_list:
+                        # return single case loop times
                         case_loop = run_workload(model,  model_path, case_num, dry_run=args.dry_run, case_name=case_name, **args_info)
                         model_case_sum +=case_loop
                         each_model_summary_list.append(case_loop)
                         header_list.append('{}_case_{}_sum'.format(case_name, case_num))
-                        case_num +=1 
+                        case_num +=1
+                    # sum the all case times 
                     groups_num +=len(args_list)
                 
                 print('{}\033[32m {} \033[0m{}'.format("-"*55,"end","-"*55))
@@ -414,6 +420,7 @@ def run_model(models_list, **kwargs):
 
         header_list.append('args_groups_sum')
         header_list.append('all_case_sum')
+        # sum the each col 
         results_list = [ sum(all_summary_list[i][y] for i in range(len(all_summary_list))) for y in range(1,len(all_summary_list[0])) ]
         results_list.insert(0,len(models))
         all_summary_list.append(results_list)
@@ -421,19 +428,15 @@ def run_model(models_list, **kwargs):
         return all_summary_list, header_list
     
 def run_workload(model, model_path="", case_num=0, dry_run=False, case_name="", **kwargs):
-
+    """
+    run workload
+    """
     base_args, loop_sum= format_args(**kwargs)
     sut_args = ' --loop={0} --reuse-sut -V --continue'.format(loop_sum)
     model_path_args = ' --set "MODEL_PATH={0}"'.format(model_path)
     run_args = './ctest.sh -R {0} --set "{1}" --set "MODEL_NAME={2}"{3}{4} '.format(case_name, base_args, model, model_path_args, sut_args)
     if dry_run:
-        # print('\033[32mSut_args:\033[0m      \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
         print('\033[32m{}_{}_args:\033[0m \033[32m   【\033[0m{}\033[32m】\033[0m'.format(case_name, case_num, run_args))
-        
-        # '{}_case_{}_sum'.format(case_name, case_num)
-        # termtables.print([[model,pre_run_args,run_args]],header=header_list)
-        # print(tabulate([[cmake_cmd]], tablefmt="fancy_grid", headers=['cmake_cmd'], maxcolwidths=[120], numalign="right"))
-        # print(tabulate([[model,pre_run_args,run_args]], tablefmt="fancy_grid", headers=header_list, maxcolwidths=[None, None, 60], numalign="right"))
     else:
         #run sut
         print('\033[32m{}_{}_args:\033[0m \033[32m   【\033[0m{}\033[32m】\033[0m'.format(case_name, case_num, run_args))
@@ -487,6 +490,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     args_info_case01 = {}
     args_info_case02 = {}
     if args.test:
+        # use the args to test function or others
         if args.weekly:
             args_info_case01 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [512], 
                                 'BATCH_SIZE': 1,'PRECISION': ['bf16_fp16','bf16'] }
@@ -516,7 +520,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
             print("\033[1;31;40m Please specify parameter --weekly(--w) or --bi_weekly(--bw) or --monthly(--m) or --normal(--n)\033[0m")
             exit(1)
     else:
-        ### args info
+        #args info
         if args.weekly:
             args_info_case01 = { 'INPUT_TOKENS': [1024], 'OUTPUT_TOKENS': [512], 
                                 'BATCH_SIZE': 1,'PRECISION': ['bf16','bf16_fp16'] }
@@ -545,12 +549,20 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
         else:
             print("\033[1;31;40m Please specify parameter --weekly(--w) or --bi_weekly(--bw) or --monthly(--m) or --normal(--n)\033[0m")
             exit(1)
- 
+    
     args_info_cases.update({"pkm":[args_info_case01, args_info_case02], "accuracy":[args_info_acc01]})
+    """
+    output the args_info_cases
+    args_info_cases = {'pkm': [{'INPUT_TOKENS': [512, 1024, 2048], 'OUTPUT_TOKENS': [32, 128, 512, 1024, 2048], 'BATCH_SIZE': [1, 4, 8, 16, 32], 'PRECISION': ['bf16']},
+                       {'INPUT_TOKENS': [512, 1024, 2048], 'OUTPUT_TOKENS': [32, 128, 512, 1024, 2048], 'BATCH_SIZE': [1], 'PRECISION': ['bf16_fp16']}], 
+                       'accuracy': [{'BATCH_SIZE': [16], 'PRECISION': ['bf16', 'fp16', 'int8', 'int4']}]}
+    """
+    # filter the null dict
     args_info_cases = {k: [ case for case in v if len(case) !=0 ]  for k, v in args_info_cases.items()}
  
     if_docker = ""
     tags = ""
+    # Unable to define models based on different IPs
     if local_ip == "172.17.29.24":
         # check docker env 
         run_env.check_docker_env()
@@ -596,7 +608,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
         if local_ip == "172.17.29.24":
             models = [ {'llama-2-7b': '/mnt/nfs_share/xft/llama2-xft'}, {'chatglm-6b': '/mnt/nfs_share/xft/chatglm-xft'} ]
         
-
+    
     workload_name = 'LLMs-xFT-Public'
     
     create_dir_or_file(args.root_dir)
