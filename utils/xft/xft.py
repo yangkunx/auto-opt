@@ -469,13 +469,13 @@ args = parser.parse_args()
 #get local ip
 local_ip, local_user= get_local_ip_user()
 
+# check env setting
 run_env = Env(local_user, "111111", local_ip)
 start_time = time.time()
 if ( not args.only_parse or (args.only_parse and args.dry_run) or 
    ( args.only_parse and args.weekly) or (args.only_parse and args.bi_weekly) or
    ( args.only_parse and args.monthly) or ( args.only_parse and args.test) or 
    ( args.only_parse and args.normal) or (args.only_parse and args.test and args.dry_run )):
-    
     
     # check ssh
     check_ssh_con = run_env.check_ssh_connect()
@@ -487,8 +487,8 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     # Only test the running env on each server when args.test is True
     tag_extend=""
     args_info_cases = {}
-    # case_name = ['pkm', 'accuracy']
     args_info_acc01 = {}
+    args_info_case01 = {}
     args_info_case02 = {}
     if args.test:
         if args.weekly:
@@ -611,7 +611,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     if not os.path.exists(wsf_dir):
         os.system("git clone -b {} {} {}".format(branch, wsf_repo, wsf_dir))
     ww_repo_dir = chdir(wsf_dir, "ww_repo_dir")
-    # checkout_origin(wsf_repo, branch)
+    checkout_origin(wsf_repo, branch)
 
     # modify terraform config
     terraform_config_file = os.path.join(wsf_dir, "script/terraform/terraform-config.static.tf")
