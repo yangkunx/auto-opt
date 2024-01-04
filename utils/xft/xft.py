@@ -684,8 +684,8 @@ if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or
                 sheet_list = []
                 with pd.ExcelWriter(output_excel) as writer:
                     cols = ["BaseModelName","Variant", "Precision", "BatchSize", "Input_Tokens","Output_Tokens",
-                            "Framework", "IsPass", "Throughput", "Min_Latency", "Max_Latency" ,"P90_Latency", 
-                            "1st_Token_Latency", "2nd+_Tokens_Average_Latency","accuracy", "WorkloadName","run_uri_perf", "local_IP"]
+                            "Framework", "IsPass", "Throughput(tokens/sec)", "Min_Latency (sec)", "Max_Latency (sec)" ,"P90_Latency (sec)", 
+                            "1st_Token_Latency (sec)", "2nd+_Tokens_Average_Latency (sec)","accuracy", "WorkloadName","run_uri_perf", "local_IP"]
                     # print(len(data))
                     parse_case_sum.append(len(data))
                     df = pd.DataFrame(data, columns=cols)
