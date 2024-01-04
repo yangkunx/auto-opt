@@ -84,7 +84,10 @@ class Env():
             print("\033[1;31;40mDocker not install, please install docker at first\033[0m")
             check_docker_install=False
             exit(1)
-        check_docker_registy = subprocess.check_output("docker ps | grep 'registry' | grep '5000/tcp'", shell=True, encoding='utf-8').split("\n")
+        try:
+            check_docker_registy = subprocess.check_output("docker ps | grep 'registry' | grep '5000/tcp'", shell=True, encoding='utf-8')
+        except:
+            check_docker_registy = []
         check_docker_registy = list(set([x for x in check_docker_registy if x != "" ]))
         # print(len(check_docker_registy))
         if len(check_docker_registy) == 1:
