@@ -31,8 +31,10 @@ from paramiko import BadHostKeyException, AuthenticationException, SSHException
     python3 xft.py  --ww 51 --monthly 2>&1 | tee output.log
     or
     python3 xft.py  --ww 51 --m 2>&1 | tee output.log
-# Only parse the ouput log: 
+# Only parse the ouput*.log: 
     python3 xft.py --o
+# Only parse the ouput.log: 
+    python3 xft.py --o --l output.log
 """
 
 class Env():
@@ -122,6 +124,23 @@ class Env():
             print('\033[32mThe k8s env is OK\033[0m')
         
         return check_kubectl_install and check_k8s_cluster
+    
+    def check_disk_usage(self, backend):
+        if backend == "docker":
+            # find the docker images location
+            docker_image_location = subprocess.check_output("docker info | grep 'Docker Root Dir'", shell=True, encoding='utf-8').split("\n")[0].split(":")[1]
+            print(docker_image_location)
+            get_dir_usage = subprocess.check_output("df -h {} | {} | tail -1".format(docker_image_location, "awk '{print $4,$5}'"), shell=True, encoding='utf-8').split("\n")[0].split()
+            avail = get_dir_usage[0].split("G")[0]
+            use_pre = get_dir_usage[1].split("%")[0]
+            print(avail, use_pre)
+            if avail <=10 and use_pre >95:
+                print("The docker image no enough space, please clean it and rerun")
+                check_disk=False
+                exit(1)
+            else:
+                check_disk = True
+                return check_disk
 
 def parse_log(log_path, local_ip):
     """
