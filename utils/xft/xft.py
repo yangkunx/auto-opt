@@ -135,7 +135,7 @@ class Env():
             use_pre = get_dir_usage[1].split("%")[0]
             print(avail, use_pre)
             if avail <=10 and use_pre >95:
-                print("The docker image no enough space, please clean it and rerun")
+                print("\033[1;31;40mThe docker image no enough space, please clean it and rerun\033[0m")
                 check_disk=False
                 exit(1)
             else:
