@@ -145,6 +145,7 @@ def parse_log(log_path, local_ip):
                 min_latency=0
                 p90_latency=0
                 throughput=0
+                accuracy=0
                 dashboard_link=""
                 BASE_MODEL_NAME=""
                 precision=""
@@ -195,6 +196,9 @@ def parse_log(log_path, local_ip):
             # Get p90_latency
             if re.search("Next token P90 Latency:", line):
                 p90_latency=round(float(re.findall('\d+\.\d+', line)[0]) / 1000, 5)
+            # Get accuracy
+            if re.search("\|acc", line):
+                accuracy = round(float(re.findall('\d+\.\d+', line)[0]), 5)
             # Get dashboard link
             if re.search("WSF Portal URL:", line):
                 dashboard_link = re.findall('https://.*', line)[0]
@@ -218,6 +222,7 @@ def parse_log(log_path, local_ip):
                 single_case_list.append(p90_latency)
                 single_case_list.append(first_token_average_latency)
                 single_case_list.append(second_token_average_latency)
+                single_case_list.append(accuracy)
                 single_case_list.append("xftbench")
                 single_case_list.append(dashboard_id)
                 single_case_list.append(collect_ip)
@@ -235,6 +240,7 @@ def parse_log(log_path, local_ip):
                 print('p90_latency: {0}'.format(p90_latency))
                 print('first_token_average_latency: {0}'.format(first_token_average_latency))
                 print('second_token_average_latency: {0}'.format(second_token_average_latency))
+                print('accuracy: {0}'.format(accuracy))
                 print('latency: {0}'.format(latency))
                 print('dashboard_link: {0}'.format(_link))
                 print('zip_link: {0}'.format(zip_link))
@@ -348,20 +354,80 @@ def format_args(**kwargs):
         loop_sum = loop_sum * length
     base_args = base_args[0:-1]
     return base_args, loop_sum
+
+def run_model(models_list, **kwargs):
+        all_model_case_sum = 0 # define the case loop sum of all models
+        all_summary_list = [] # Loop summary information for all models
+        
+        for all_models in models_list: # 2
+            model_case_sum = 0 # define the case loop sum
+            groups_num = 0 # define how mach the cases
+            header_list = [] # define the header of table
+            header_list.append('model')
+
+            for model, model_path in all_models.items():
+                each_model_summary_list = [] # Loop summary information for each model
+                each_model_summary_list.append(model)
+                cmake_cmd = "cmake -DREGISTRY={}:20666 -DPLATFORM=SPR -DRELEASE=latest -DACCEPT_LICENSE=ALL -DBACKEND=terraform -DBENCHMARK= \
+-DTERRAFORM_SUT=static -DTERRAFORM_OPTIONS='{} --svrinfo --intel_publish --tags={} \
+--owner=sf-post-silicon' -DTIMEOUT=60000,3600 ..".format(local_ip, if_docker,tags)
+                
+                print('{}\033[32m {} \033[0m{}'.format("-"*50,model,"-"*50))
+                if args.dry_run:
+                    print('\033[32mCmake cmd:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
+                else:
+                    build_name = "build_" + model
+                    if "/" in model:
+                        build_name = "build_" + model.replace("/","_")
+                    build_path = os.path.join(ww_repo_dir, build_name)
+                    create_dir_or_file(build_path)
+                    chdir(build_path, "ww_repo_model_build")
+                    #cmake
+                    print('\033[32mCmake cmd:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
+                    os.system(cmake_cmd)
+                    chdir(os.path.join(build_path, "workload", workload_name), "ww_build_workload_path")
+                    os.system("make")
+                
+                for case_name , args_list in kwargs.items():
+                    case_num = 1 # define the case num
+                    pre_run_args = './ctest.sh -R {0} --prepare-sut -V'.format(case_name)
+                    if args.dry_run:
+                        print('\033[32m{}_sut_args:\033[0m  \033[32m【\033[0m{}\033[32m】\033[0m'.format(case_name, pre_run_args))
+                    else:
+                        #prepare sut
+                        print('\033[32m{}_sut_args:\033[0m  \033[32m【\033[0m{}\033[32m】\033[0m'.format(case_name, pre_run_args))
+                        os.system(pre_run_args)
+                    for args_info in args_list:
+                        case_loop = run_workload(model,  model_path, case_num, dry_run=args.dry_run, case_name=case_name, **args_info)
+                        model_case_sum +=case_loop
+                        each_model_summary_list.append(case_loop)
+                        header_list.append('{}_case_{}_sum'.format(case_name, case_num))
+                        case_num +=1 
+                    groups_num +=len(args_list)
+                
+                print('{}\033[32m {} \033[0m{}'.format("-"*55,"end","-"*55))
+                each_model_summary_list.extend([groups_num, model_case_sum])
+            
+            
+            all_model_case_sum += model_case_sum
+            all_summary_list.append(each_model_summary_list)
+
+        header_list.append('args_groups_sum')
+        header_list.append('all_case_sum')
+        results_list = [ sum(all_summary_list[i][y] for i in range(len(all_summary_list))) for y in range(1,len(all_summary_list[0])) ]
+        results_list.insert(0,len(models))
+        all_summary_list.append(results_list)
+        
+        return all_summary_list, header_list
     
 def run_workload(model, model_path="", case_num=0, dry_run=False, case_name="", **kwargs):
 
-    
     base_args, loop_sum= format_args(**kwargs)
-    pre_run_args = './ctest.sh -R {0} --prepare-sut -V'.format(case_name)
     sut_args = ' --loop={0} --reuse-sut -V --continue'.format(loop_sum)
     model_path_args = ' --set "MODEL_PATH={0}"'.format(model_path)
     run_args = './ctest.sh -R {0} --set "{1}" --set "MODEL_NAME={2}"{3}{4} '.format(case_name, base_args, model, model_path_args, sut_args)
     if dry_run:
-
-        
-        # print('\033[32mRun_model:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(model))
-        print('\033[32mSut_args:\033[0m      \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
+        # print('\033[32mSut_args:\033[0m      \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
         print('\033[32m{}_{}_args:\033[0m \033[32m   【\033[0m{}\033[32m】\033[0m'.format(case_name, case_num, run_args))
         
         # '{}_case_{}_sum'.format(case_name, case_num)
@@ -370,9 +436,7 @@ def run_workload(model, model_path="", case_num=0, dry_run=False, case_name="", 
         # print(tabulate([[model,pre_run_args,run_args]], tablefmt="fancy_grid", headers=header_list, maxcolwidths=[None, None, 60], numalign="right"))
     else:
         
-        #prepare sut
-        print('\033[32msut_args:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(pre_run_args))
-        os.system(pre_run_args)
+
         
         #run sut
         print('\033[32m{}_{}_args:\033[0m \033[32m   【\033[0m{}\033[32m】\033[0m'.format(case_name, case_num, run_args))
@@ -395,6 +459,7 @@ parser.add_argument("--dry_run", "--d", action="store_true", help="dry run")
 parser.add_argument("--only_parse", "--o", action="store_true", help="Only parse the log")
 parser.add_argument("--branch", "--b", type=str, default="develop", help="Specify the branch of wsf repo")
 parser.add_argument("--repo", "--r", type=str, default="https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features", help="Specify wsf the repo")
+parser.add_argument("--log_file", "--l", type=str, help="Specify the log file")
 
 # wsf_repo = "https://github.com/JunxiChhen/applications.benchmarking.benchmark.platform-hero-features"
 # wsf_repo = "https://github.com/yangkunx/applications.benchmarking.benchmark.platform-hero-features"
@@ -433,10 +498,8 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
                                 'BATCH_SIZE': 1, 'PRECISION': ['bf16'] }
             tag_extend="test_weekly"
         elif args.bi_weekly:
-            args_info_case01 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [1024],
-                                'BATCH_SIZE': [1], 'PRECISION': ['bf16'] }
-            args_info_case02 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [1024],
-                                'BATCH_SIZE': [1], 'PRECISION': ['bf16_fp16'] }
+            args_info_case01 = { }
+            args_info_case02 = { }
             args_info_acc01 = { 'PRECISION': ['bf16', 'fp16', 'int8', 'int4'] }
             tag_extend="test_bi-weekly"
         elif args.monthly:
@@ -548,71 +611,13 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     if not os.path.exists(wsf_dir):
         os.system("git clone -b {} {} {}".format(branch, wsf_repo, wsf_dir))
     ww_repo_dir = chdir(wsf_dir, "ww_repo_dir")
-    checkout_origin(wsf_repo, branch)
+    # checkout_origin(wsf_repo, branch)
 
     # modify terraform config
     terraform_config_file = os.path.join(wsf_dir, "script/terraform/terraform-config.static.tf")
     replacetext(local_ip, local_user)
 
     # run model
-    def run_model(models_list, **kwargs):
-        all_model_case_sum = 0 # define the case loop sum of all models
-        all_summary_list = [] # Loop summary information for all models
-        
-        for all_models in models_list: # 2
-            model_case_sum = 0 # define the case loop sum
-            groups_num = 0
-            header_list = []
-            header_list.append('model')
-
-            for model, model_path in all_models.items():
-                each_model_summary_list = [] # Loop summary information for each model
-                each_model_summary_list.append(model)
-                cmake_cmd = "cmake -DREGISTRY={}:20666 -DPLATFORM=SPR -DRELEASE=latest -DACCEPT_LICENSE=ALL -DBACKEND=terraform -DBENCHMARK= \
-                      -DTERRAFORM_SUT=static -DTERRAFORM_OPTIONS='{} --svrinfo --intel_publish --tags={} \
-                                 --owner=sf-post-silicon' -DTIMEOUT=60000,3600 ..".format(local_ip, if_docker,tags)
-                
-                print('{}\033[32m {} \033[0m{}'.format("-"*50,model,"-"*50))
-                if args.dry_run:
-                    print('\033[32mCmake cmd:\033[0m     \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
-                else:
-                    build_name = "build_" + model
-                    if "/" in model:
-                        build_name = "build_" + model.replace("/","_")
-                    build_path = os.path.join(ww_repo_dir, build_name)
-                    create_dir_or_file(build_path)
-                    chdir(build_path, "ww_repo_model_build")
-                    #cmake
-                    print('\033[32mCmake cmd:\033[0m \033[32m【\033[0m{}\033[32m】\033[0m'.format(cmake_cmd))
-                    os.system(cmake_cmd)
-                    chdir(os.path.join(build_path, "workload", workload_name), "ww_build_workload_path")
-                    os.system("make")
-                
-                for case_name , args_list in kwargs.items():
-                    case_num = 1 # define the case num
-                    for args_info in args_list:
-                        case_loop = run_workload(model,  model_path, case_num, dry_run=args.dry_run, case_name=case_name, **args_info)
-                        model_case_sum +=case_loop
-                        each_model_summary_list.append(case_loop)
-                        header_list.append('{}_case_{}_sum'.format(case_name, case_num))
-                        case_num +=1 
-                    groups_num +=len(args_list)
-                
-                print('{}\033[32m {} \033[0m{}'.format("-"*55,"end","-"*55))
-                each_model_summary_list.extend([groups_num, model_case_sum])
-            
-            print(each_model_summary_list)
-            all_model_case_sum += model_case_sum
-            all_summary_list.append(each_model_summary_list)
-
-        header_list.append('args_groups_sum')
-        header_list.append('all_case_sum')
-        results_list = [ sum(all_summary_list[i][y] for i in range(len(all_summary_list))) for y in range(1,len(all_summary_list[0])) ]
-        results_list.insert(0,len(models))
-        all_summary_list.append(results_list)
-        
-        return all_summary_list, header_list
-    # termtables.print(all_summary_list, header = header_list)
     print('{0}\033[32m summary result \033[0m{1}'.format("-"*50,"-"*50))
     
     all_summary_list, header_list = run_model(models, **args_info_cases)
@@ -625,7 +630,11 @@ if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or
     (args.only_parse and args.test and args.dry_run ) or args.only_parse ):
     # parse output.log
     script_exec_path = os.path.realpath(os.path.dirname(__file__))
-    file_list = glob.glob(script_exec_path + "/output*.log")
+    if args.log_file:
+        file_list = glob.glob(script_exec_path + "/{}".format(args.log_file))
+    else:
+        print("tt")
+        file_list = glob.glob(script_exec_path + "/output*.log")
     summary_excel = os.path.join(script_exec_path, "{}.xlsx".format("summary"))
     print('\033[32mLog file list is: \033[0m{0}'.format(file_list))
     each_kpi_summary = []
@@ -644,7 +653,7 @@ if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or
                 with pd.ExcelWriter(output_excel) as writer:
                     cols = ["BaseModelName","Variant", "Precision", "BatchSize", "Input_Tokens","Output_Tokens",
                             "Framework", "IsPass", "Throughput", "Min_Latency", "Max_Latency" ,"P90_Latency", 
-                            "1st_Token_Latency", "2nd+_Tokens_Average_Latency", "WorkloadName","run_uri_perf", "local_IP"]
+                            "1st_Token_Latency", "2nd+_Tokens_Average_Latency","accuracy", "WorkloadName","run_uri_perf", "local_IP"]
                     # print(len(data))
                     parse_case_sum.append(len(data))
                     df = pd.DataFrame(data, columns=cols)
