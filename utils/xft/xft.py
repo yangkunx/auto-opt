@@ -435,17 +435,13 @@ def run_workload(model, model_path="", case_num=0, dry_run=False, case_name="", 
         # print(tabulate([[cmake_cmd]], tablefmt="fancy_grid", headers=['cmake_cmd'], maxcolwidths=[120], numalign="right"))
         # print(tabulate([[model,pre_run_args,run_args]], tablefmt="fancy_grid", headers=header_list, maxcolwidths=[None, None, 60], numalign="right"))
     else:
-        
-
-        
         #run sut
         print('\033[32m{}_{}_args:\033[0m \033[32m   【\033[0m{}\033[32m】\033[0m'.format(case_name, case_num, run_args))
         os.system(run_args)
     
     return loop_sum
     
-   
-
+# setting args
 parser = argparse.ArgumentParser()
 parser.add_argument("--ww", type=str, default="40", help="work week")
 parser.add_argument("--weekly", "--w", action="store_true", help="weekly")
@@ -498,9 +494,11 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
                                 'BATCH_SIZE': 1, 'PRECISION': ['bf16'] }
             tag_extend="test_weekly"
         elif args.bi_weekly:
-            args_info_case01 = { }
-            args_info_case02 = { }
-            args_info_acc01 = { 'PRECISION': ['bf16', 'fp16', 'int8', 'int4'] }
+            args_info_case01 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32],
+                                'BATCH_SIZE': [1], 'PRECISION': ['bf16'] }
+            args_info_case02 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32],
+                                'BATCH_SIZE': [1], 'PRECISION': ['bf16_fp16'] }
+            args_info_acc01 = { 'BATCH_SIZE': [16], 'PRECISION': ['bf16', 'fp16', 'int8', 'int4'] }
             tag_extend="test_bi-weekly"
         elif args.monthly:
             args_info_case01 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [512],
@@ -530,7 +528,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
                                 'BATCH_SIZE': [1,4,8,16,32], 'PRECISION': ['bf16'] }
             args_info_case02 = { 'INPUT_TOKENS': [512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048],
                                 'BATCH_SIZE': [1], 'PRECISION': ['bf16_fp16'] }
-            args_info_acc01 = { 'PRECISION': ['bf16', 'fp16', 'int8', 'int4'] }
+            args_info_acc01 = { 'BATCH_SIZE': [16], 'PRECISION': ['bf16', 'fp16', 'int8', 'int4'] }
             tag_extend="bi-weekly"
         elif args.monthly:
             args_info_case01 = { 'INPUT_TOKENS': [512], 'OUTPUT_TOKENS': [512],
@@ -595,6 +593,9 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
     
     if args.weekly:
         models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'} ]
+        if local_ip == "172.17.29.24":
+            models = [ {'llama-2-7b': '/mnt/nfs_share/xft/llama2-xft'}, {'chatglm-6b': '/mnt/nfs_share/xft/chatglm-xft'} ]
+        
 
     workload_name = 'LLMs-xFT-Public'
     
