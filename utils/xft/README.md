@@ -1,4 +1,3 @@
-### Setup
 ### Use xft.py
 #### Install deps 
 ```
