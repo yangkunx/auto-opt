@@ -477,8 +477,8 @@ parser.add_argument("--platform","--p", type=str, default="spr", help="the platf
 parser.add_argument("--test", "--t", action="store_true", help="test the case or run env")
 parser.add_argument("--dry_run", "--d", action="store_true", help="dry run")
 parser.add_argument("--only_parse", "--o", action="store_true", help="Only parse the log")
-parser.add_argument("--branch", "--b", type=str, default="develop", help="Specify the branch of wsf repo")
-parser.add_argument("--repo", "--r", type=str, default="https://github.com/intel-innersource/applications.benchmarking.benchmark.platform-hero-features", help="Specify wsf the repo")
+parser.add_argument("--branch", "--b", type=str, default="llm-dev-ww53", help="Specify the branch of wsf repo")
+parser.add_argument("--repo", "--r", type=str, default="https://github.com/yangkunx/applications.benchmarking.benchmark.platform-hero-features", help="Specify wsf the repo")
 parser.add_argument("--log_file", "--l", type=str, help="Specify the log file")
 
 # wsf_repo = "https://github.com/JunxiChhen/applications.benchmarking.benchmark.platform-hero-features"
@@ -523,7 +523,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
                                 'BATCH_SIZE': [1], 'PRECISION': ['bf16'] }
             args_info_case02 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [32],
                                 'BATCH_SIZE': [1], 'PRECISION': ['bf16_fp16'] }
-            args_info_acc01 = { 'BATCH_SIZE': [16], 'PRECISION': ['bf16', 'fp16', 'int8', 'int4'] }
+            args_info_acc01 = { 'BATCH_SIZE': [16], 'PRECISION': ['bf16', 'fp16', 'int8', 'int4', 'nf4', 'w8a8'] }
             tag_extend="test_bi-weekly"
         elif args.monthly:
             args_info_case01 = { 'INPUT_TOKENS': [32], 'OUTPUT_TOKENS': [512],
@@ -553,7 +553,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
                                 'BATCH_SIZE': [1,4,8,16,32], 'PRECISION': ['bf16'] }
             args_info_case02 = { 'INPUT_TOKENS': [512,1024,2048], 'OUTPUT_TOKENS': [32,128,512,1024,2048],
                                 'BATCH_SIZE': [1], 'PRECISION': ['bf16_fp16'] }
-            args_info_acc01 = { 'BATCH_SIZE': [16], 'PRECISION': ['bf16', 'fp16', 'int8', 'int4'] }
+            args_info_acc01 = { 'BATCH_SIZE': [16], 'PRECISION': ['bf16', 'fp16', 'int8', 'int4', 'nf4', 'w8a8'] }
             tag_extend="bi-weekly"
         elif args.monthly:
             args_info_case01 = { 'INPUT_TOKENS': [512], 'OUTPUT_TOKENS': [512],
