@@ -416,12 +416,13 @@ def run_model(models_list, **kwargs):
                 for case_name , args_list in kwargs.items():
                     case_num = 1 # define the case num
                     pre_run_args = './ctest.sh -R {0} --prepare-sut -V'.format(case_name)
-                    if args.dry_run:
-                        print('\033[32m{}_sut_args:\033[0m  \033[32m【\033[0m{}\033[32m】\033[0m'.format(case_name, pre_run_args))
-                    else:
-                        #prepare sut
-                        print('\033[32m{}_sut_args:\033[0m  \033[32m【\033[0m{}\033[32m】\033[0m'.format(case_name, pre_run_args))
-                        os.system(pre_run_args)
+                    if len(args_list) !=0:
+                        if args.dry_run:
+                            print('\033[32m{}_sut_args:\033[0m  \033[32m【\033[0m{}\033[32m】\033[0m'.format(case_name, pre_run_args))
+                        else:
+                            #prepare sut
+                            print('\033[32m{}_sut_args:\033[0m  \033[32m【\033[0m{}\033[32m】\033[0m'.format(case_name, pre_run_args))
+                            os.system(pre_run_args)
                     for args_info in args_list:
                         # return single case loop times
                         case_loop = run_workload(model,  model_path, case_num, dry_run=args.dry_run, case_name=case_name, **args_info)
