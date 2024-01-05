@@ -668,7 +668,6 @@ if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or
     if args.log_file:
         file_list = glob.glob(script_exec_path + "/{}".format(args.log_file))
     else:
-        print("tt")
         file_list = glob.glob(script_exec_path + "/output*.log")
     summary_excel = os.path.join(script_exec_path, "{}.xlsx".format("summary"))
     print('\033[32mLog file list is: \033[0m{0}'.format(file_list))
