@@ -461,6 +461,7 @@ def run_model(models_list, **kwargs):
         # sum the each col 
         results_list = [ sum(all_summary_list[i][y] for i in range(len(all_summary_list))) for y in range(1,len(all_summary_list[0])) ]
         results_list.insert(0,len(models))
+
         all_summary_list.append(results_list)
         
         return all_summary_list, header_list
@@ -691,12 +692,14 @@ if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or
     each_kpi_acc_summary = []
     parse_case_sum=[]
     headers_list=[]
+    headers_list.append("mode")
     if len(file_list) != 0:
         for file in file_list:
             output_file = os.path.join(script_exec_path, file)
             basename = os.path.basename(output_file).split(".")[0]
             output_excel = os.path.join(script_exec_path, "{}.xlsx".format(basename))
-            headers_list.append(basename)
+            
+            headers_list.append("[file: {}]".format(basename))
             if os.path.exists(output_file):
                 print('{0}\033[32m parse log result \033[0m{1}'.format("-"*50,"-"*50))
                 data = parse_log(output_file)
@@ -719,19 +722,33 @@ if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or
                             df = pd.DataFrame(data, columns=cols)
                             df.to_excel(writer, index=False, sheet_name=mode)
         
+        
+        acc_calculate_list = [ len(l) for l in each_kpi_acc_summary]
+        late_calculate_list = [ len(l) for l in each_kpi_late_summary]
+        acc_calculate_list.insert(0, "accuracy")
+        late_calculate_list.insert(0, "latency")
+
         # Summary multiple output logs
         with pd.ExcelWriter(summary_excel) as writer:
             each_kpi_late_summary = sum(each_kpi_late_summary, [])
             each_kpi_acc_summary = sum(each_kpi_acc_summary, [])
-            print(each_kpi_acc_summary)
             parse_case_sum.append(len(each_kpi_late_summary))
             parse_case_sum.append(len(each_kpi_acc_summary))
-            df_late = pd.DataFrame(each_kpi_late_summary, columns=latency_cols)
-            df_acc = pd.DataFrame(each_kpi_acc_summary, columns=accuracy_cols)
-            df_late.to_excel(writer, index=False, sheet_name="latency")
-            df_acc.to_excel(writer, index=False, sheet_name="accuracy")
+            if len(each_kpi_late_summary) != 0:
+                df_late = pd.DataFrame(each_kpi_late_summary, columns=latency_cols)
+                df_late.to_excel(writer, index=False, sheet_name="latency")
+            if len(each_kpi_acc_summary) != 0:
+                df_acc = pd.DataFrame(each_kpi_acc_summary, columns=accuracy_cols)
+                df_acc.to_excel(writer, index=False, sheet_name="accuracy")
     headers_list.append("parse_all_logfile_case_sum")
     print('{0}\033[32m summary result \033[0m{1}'.format("-"*50,"-"*50))
-    print(tabulate([parse_case_sum], headers=headers_list, tablefmt="fancy_grid", numalign="center"))
+    all_calculate_list =[acc_calculate_list, late_calculate_list]
+    results_list = [ sum(all_calculate_list[i][y] for i in range(len(all_calculate_list))) for y in range(1,len(all_calculate_list[0])) ]    
+    results_list.insert(0, "single_summary")
+    all_calculate_list.append(results_list)
+    all_calculate_list.append(['all_acc_sum:', sum(acc_calculate_list[1:])])
+    all_calculate_list.append(['all_acc_sum:', sum(late_calculate_list[1:])])
+    all_calculate_list.append(['all_sum:', sum(late_calculate_list[1:])+sum(acc_calculate_list[1:])])
+    print(tabulate(all_calculate_list, headers=headers_list, tablefmt="fancy_grid", numalign="center"))
 end_time = time.time()
 print("Total time spent: {:.2f}sec".format(end_time - start_time))
