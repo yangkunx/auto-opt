@@ -144,12 +144,14 @@ class Env():
                 check_disk = True
                 return check_disk
 
-def parse_log(log_path, local_ip):
+def parse_log(log_path):
     """
     parse log
     """
     #Read output log file
-    single_file_list = []
+    mode_type = {}
+    single_file_late_list = []
+    single_file_acc_list = []
     with open(log_path, 'r') as ds_log:
         lines = ds_log.readlines()
         for line in lines:
@@ -172,6 +174,7 @@ def parse_log(log_path, local_ip):
                 base_model_name=""
                 precision=""
                 model_name=""
+                mode=re.findall('\d\:\sMODE=.*', line)[0].split("=")[1]
             if re.search("BASE_MODEL_NAME:", line):
                 base_model_name=re.findall('BASE_MODEL_NAME:.*', line)[0].split(":")[1]
             if re.search("\d\:\sPRECISION=", line):
@@ -238,19 +241,29 @@ def parse_log(log_path, local_ip):
                 single_case_list.append(output_tokens)
                 single_case_list.append("pytorch+xfasttransformer")
                 single_case_list.append("True")
-                single_case_list.append(throughput)
-                single_case_list.append(min_latency)
-                single_case_list.append(max_latency)
-                single_case_list.append(p90_latency)
-                single_case_list.append(first_token_average_latency)
-                single_case_list.append(second_token_average_latency)
-                single_case_list.append(accuracy)
                 single_case_list.append("xftbench")
                 single_case_list.append(dashboard_id)
                 single_case_list.append(collect_ip)
                 # single_case_list.append(dashboard_link)
                 # single_case_list.append(zip_link)
-                single_file_list.append(single_case_list)
+                if mode == "accuracy":
+                    single_case_list.insert(-3, accuracy)
+                    single_file_acc_list.append(single_case_list)
+                else:
+                    single_case_list.insert(-3, throughput)
+                    single_case_list.insert(-3, min_latency)
+                    single_case_list.insert(-3, max_latency)
+                    single_case_list.insert(-3, p90_latency)
+                    single_case_list.insert(-3, first_token_average_latency)
+                    single_case_list.insert(-3, second_token_average_latency)
+                    # single_case_list.append(throughput)
+                    # single_case_list.append(min_latency)
+                    # single_case_list.append(max_latency)
+                    # single_case_list.append(p90_latency)
+                    # single_case_list.append(first_token_average_latency)
+                    # single_case_list.append(second_token_average_latency)
+                    single_file_late_list.append(single_case_list)
+                    # mode_type[mode] = single_file_list
                 print('model_name: {0}'.format(model_name))
                 print('precision: {0}'.format(precision))
                 print('batch_size: {0}'.format(batch_size))
@@ -268,9 +281,12 @@ def parse_log(log_path, local_ip):
                 print('zip_link: {0}'.format(zip_link))
                 print('local_ip: {0}'.format(collect_ip))
 
-
-    # print(single_file_list)
-    return single_file_list
+    
+    mode_type['accuracy'] = single_file_acc_list
+    mode_type['latency'] = single_file_late_list
+    # print(single_file_acc_list)
+    # print(mode_type)
+    return mode_type
 
 def checkout_origin(remote_url, branch_name):
     """
@@ -671,7 +687,8 @@ if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or
         file_list = glob.glob(script_exec_path + "/output*.log")
     summary_excel = os.path.join(script_exec_path, "{}.xlsx".format("summary"))
     print('\033[32mLog file list is: \033[0m{0}'.format(file_list))
-    each_kpi_summary = []
+    each_kpi_late_summary = []
+    each_kpi_acc_summary = []
     parse_case_sum=[]
     headers_list=[]
     if len(file_list) != 0:
@@ -682,25 +699,37 @@ if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or
             headers_list.append(basename)
             if os.path.exists(output_file):
                 print('{0}\033[32m parse log result \033[0m{1}'.format("-"*50,"-"*50))
-                data = parse_log(output_file, local_ip)
+                data = parse_log(output_file)
                 sheet_list = []
+                latency_cols = ["BaseModelName","Variant", "Precision", "BatchSize", "Input_Tokens","Output_Tokens",
+                        "Framework", "IsPass", "Throughput(tokens/sec)", "Min_Latency (sec)", "Max_Latency (sec)" ,"P90_Latency (sec)", 
+                        "1st_Token_Latency (sec)", "2nd+_Tokens_Average_Latency (sec)", "WorkloadName","run_uri_perf", "local_IP"]
+                accuracy_cols = ["BaseModelName","Variant", "Precision", "BatchSize", "Input_Tokens","Output_Tokens",
+                        "Framework", "IsPass","accuracy", "WorkloadName","run_uri_perf", "local_IP"]
                 with pd.ExcelWriter(output_excel) as writer:
-                    cols = ["BaseModelName","Variant", "Precision", "BatchSize", "Input_Tokens","Output_Tokens",
-                            "Framework", "IsPass", "Throughput(tokens/sec)", "Min_Latency (sec)", "Max_Latency (sec)" ,"P90_Latency (sec)", 
-                            "1st_Token_Latency (sec)", "2nd+_Tokens_Average_Latency (sec)","accuracy", "WorkloadName","run_uri_perf", "local_IP"]
-                    # print(len(data))
-                    parse_case_sum.append(len(data))
-                    df = pd.DataFrame(data, columns=cols)
-                    df.to_excel(writer, index=False)
-                    each_kpi_summary.append(data)
+                    for mode, data in data.items():
+                        if mode == "latency":
+                            cols=latency_cols
+                            each_kpi_late_summary.append(data)
+                        elif mode == "accuracy":
+                            cols=accuracy_cols
+                            each_kpi_acc_summary.append(data)
+                        parse_case_sum.append(len(data))
+                        if len(data) != 0:
+                            df = pd.DataFrame(data, columns=cols)
+                            df.to_excel(writer, index=False, sheet_name=mode)
         
         # Summary multiple output logs
         with pd.ExcelWriter(summary_excel) as writer:
-            each_kpi_summary = sum(each_kpi_summary, [])
-            # print(len(each_kpi_summary))
-            parse_case_sum.append(len(each_kpi_summary))
-            df = pd.DataFrame(each_kpi_summary, columns=cols)
-            df.to_excel(writer, index=False)
+            each_kpi_late_summary = sum(each_kpi_late_summary, [])
+            each_kpi_acc_summary = sum(each_kpi_acc_summary, [])
+            print(each_kpi_acc_summary)
+            parse_case_sum.append(len(each_kpi_late_summary))
+            parse_case_sum.append(len(each_kpi_acc_summary))
+            df_late = pd.DataFrame(each_kpi_late_summary, columns=latency_cols)
+            df_acc = pd.DataFrame(each_kpi_acc_summary, columns=accuracy_cols)
+            df_late.to_excel(writer, index=False, sheet_name="latency")
+            df_acc.to_excel(writer, index=False, sheet_name="accuracy")
     headers_list.append("parse_all_logfile_case_sum")
     print('{0}\033[32m summary result \033[0m{1}'.format("-"*50,"-"*50))
     print(tabulate([parse_case_sum], headers=headers_list, tablefmt="fancy_grid", numalign="center"))
