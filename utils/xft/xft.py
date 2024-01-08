@@ -740,7 +740,7 @@ if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or
             if len(each_kpi_acc_summary) != 0:
                 df_acc = pd.DataFrame(each_kpi_acc_summary, columns=accuracy_cols)
                 df_acc.to_excel(writer, index=False, sheet_name="accuracy")
-    headers_list.append("parse_all_logfile_case_sum")
+ 
     print('{0}\033[32m summary result \033[0m{1}'.format("-"*50,"-"*50))
     all_calculate_list =[acc_calculate_list, late_calculate_list]
     results_list = [ sum(all_calculate_list[i][y] for i in range(len(all_calculate_list))) for y in range(1,len(all_calculate_list[0])) ]    
