@@ -694,7 +694,7 @@ if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or
             
             headers_list.append("[file: {}]".format(basename))
             if os.path.exists(output_file):
-                print('{0}\033[32m parse log result \033[0m{1}'.format("-"*50,"-"*50))
+                print('{}\033[32m parse {} log result \033[0m{}'.format("-"*50, basename, "-"*50))
                 data = parse_log(output_file)
                 sheet_list = []
                 latency_cols = ["BaseModelName","Variant", "Precision", "BatchSize", "Input_Tokens","Output_Tokens",
