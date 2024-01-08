@@ -634,7 +634,7 @@ if ( not args.only_parse or (args.only_parse and args.dry_run) or
         if_docker = "--docker"
         tags = "ww{}_SPR_QUAD_148_{}".format(args.ww.upper(), tag_extend)
         models = [ {'llama-2-7b': '/opt/dataset/llama2-xft'}, {'chatglm-6b': '/opt/dataset/chatglm-xft'},
-                  {'baichuan2-13b': '/opt/dataset/baichuan2-xft'}, 
+                  {'baichuan2-13b': '/opt/dataset/baichuan2-xft'}, {'llama-2-13b': '/opt/dataset/llama2-xft'},
                   {'chatglm2-6b': '/opt/dataset/chatglm2-xft'}, {'baichuan2-7b': '/opt/dataset/baichuan2-xft'}]
     else:
         run_env.check_docker_env()
@@ -709,6 +709,8 @@ if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or
                         "1st_Token_Latency (sec)", "2nd+_Tokens_Average_Latency (sec)", "WorkloadName","run_uri_perf", "local_IP"]
                 accuracy_cols = ["BaseModelName","Variant", "Precision", "BatchSize", "Input_Tokens","Output_Tokens",
                         "Framework", "IsPass","accuracy", "WorkloadName","run_uri_perf", "local_IP"]
+                
+                # parse single output*.log file
                 with pd.ExcelWriter(output_excel) as writer:
                     for mode, data in data.items():
                         if mode == "latency":
@@ -740,7 +742,8 @@ if ((args.only_parse and args.dry_run) or (args.only_parse and args.test) or
             if len(each_kpi_acc_summary) != 0:
                 df_acc = pd.DataFrame(each_kpi_acc_summary, columns=accuracy_cols)
                 df_acc.to_excel(writer, index=False, sheet_name="accuracy")
- 
+   
+    # print sum result info
     print('{0}\033[32m summary result \033[0m{1}'.format("-"*50,"-"*50))
     all_calculate_list =[acc_calculate_list, late_calculate_list]
     results_list = [ sum(all_calculate_list[i][y] for i in range(len(all_calculate_list))) for y in range(1,len(all_calculate_list[0])) ]    
